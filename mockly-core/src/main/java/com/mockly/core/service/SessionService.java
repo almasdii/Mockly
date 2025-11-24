@@ -8,7 +8,6 @@ import com.mockly.core.exception.ResourceNotFoundException;
 import com.mockly.core.mapper.SessionMapper;
 import com.mockly.data.entity.Session;
 import com.mockly.data.entity.SessionParticipant;
-import com.mockly.data.entity.User;
 import com.mockly.data.enums.ParticipantRole;
 import com.mockly.data.enums.SessionStatus;
 import com.mockly.data.repository.ProfileRepository;
@@ -41,6 +40,7 @@ public class SessionService {
     private final SessionRepository sessionRepository;
     private final SessionParticipantRepository participantRepository;
     private final UserRepository userRepository;
+    private final ProfileRepository profileRepository;
     private final SessionMapper sessionMapper;
     private final LiveKitService liveKitService;
 
@@ -373,6 +373,33 @@ public class SessionService {
                 );
 
         return activeSession.map(sessionMapper::toResponse);
+    }
+
+    /**
+     * Get user display name from profile.
+     * Falls back to email if display name is not set.
+     *
+     * @param userId User ID
+     * @return Display name or email
+     */
+    @Transactional(readOnly = true)
+    public String getUserDisplayName(UUID userId) {
+        return profileRepository.findByUserId(userId)
+                .map(profile -> {
+                    if (profile.getDisplayName() != null && !profile.getDisplayName().isBlank()) {
+                        return profile.getDisplayName();
+                    }
+                    // Fallback to email if display name is not set
+                    return userRepository.findById(userId)
+                            .map(user -> user.getEmail())
+                            .orElse("User");
+                })
+                .orElseGet(() -> {
+                    // If profile doesn't exist, use email
+                    return userRepository.findById(userId)
+                            .map(user -> user.getEmail())
+                            .orElse("User");
+                });
     }
 }
 

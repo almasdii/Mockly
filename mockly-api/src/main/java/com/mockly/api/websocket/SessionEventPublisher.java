@@ -1,5 +1,6 @@
 package com.mockly.api.websocket;
 
+import com.mockly.core.dto.report.ReportResponse;
 import com.mockly.core.dto.session.SessionResponse;
 import com.mockly.data.entity.Session;
 import com.mockly.data.entity.SessionParticipant;
@@ -116,11 +117,43 @@ public class SessionEventPublisher {
     }
 
     /**
+     * Publish report ready event.
+     * Sends to: /topic/sessions/{sessionId}/report and /topic/users/{userId}/sessions
+     */
+    public void publishReportReady(Session session, ReportResponse reportResponse) {
+        String sessionTopic = "/topic/sessions/" + session.getId() + "/report";
+        String sessionEventTopic = "/topic/sessions/" + session.getId();
+
+        ReportEvent event = new ReportEvent("REPORT_READY", reportResponse);
+
+        messagingTemplate.convertAndSend(sessionTopic, event);
+        messagingTemplate.convertAndSend(sessionEventTopic, event);
+
+        // Notify all participants
+        if (session.getParticipants() != null) {
+            for (SessionParticipant participant : session.getParticipants()) {
+                String userTopic = "/topic/users/" + participant.getUserId() + "/sessions";
+                messagingTemplate.convertAndSend(userTopic, event);
+            }
+        }
+
+        log.info("Published REPORT_READY event for session: {}", session.getId());
+    }
+
+    /**
      * WebSocket event wrapper.
      */
     public record SessionEvent(
             String type,
             SessionResponse data
+    ) {}
+
+    /**
+     * WebSocket report event wrapper.
+     */
+    public record ReportEvent(
+            String type,
+            ReportResponse data
     ) {}
 }
 

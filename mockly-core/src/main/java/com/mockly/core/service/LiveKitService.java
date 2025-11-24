@@ -57,10 +57,13 @@ public class LiveKitService {
             long now = System.currentTimeMillis() / 1000;
             long exp = now + (TOKEN_EXPIRATION_HOURS * 3600);
 
-            // Build claims
+            // Build claims with name/metadata
+            String nameClaim = displayName != null && !displayName.isBlank() 
+                    ? String.format(",\"name\":\"%s\"", escapeJson(displayName))
+                    : "";
             String claimsJson = String.format(
-                "{\"iss\":\"%s\",\"sub\":\"%s\",\"nbf\":%d,\"exp\":%d,\"video\":{\"room\":\"%s\",\"roomJoin\":true,\"canPublish\":true,\"canSubscribe\":true}}",
-                apiKey, identity, now, exp, roomId
+                "{\"iss\":\"%s\",\"sub\":\"%s\",\"nbf\":%d,\"exp\":%d,\"video\":{\"room\":\"%s\",\"roomJoin\":true,\"canPublish\":true,\"canSubscribe\":true}%s}",
+                apiKey, identity, now, exp, roomId, nameClaim
             );
 
             // Create JWT header
@@ -111,9 +114,23 @@ public class LiveKitService {
      * @param roomId Room ID to delete
      */
     public void deleteRoom(String roomId) {
-        log.info("Room {} will be automatically cleaned up by LiveKit when empty", roomId);
+            log.info("Room {} will be automatically cleaned up by LiveKit when empty", roomId);
         // TODO: Implement room deletion via LiveKit RoomService API if needed
         // This would require additional LiveKit SDK dependencies for room management
+    }
+
+    /**
+     * Escape JSON string to prevent injection.
+     */
+    private String escapeJson(String input) {
+        if (input == null) {
+            return "";
+        }
+        return input.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }
 

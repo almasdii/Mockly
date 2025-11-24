@@ -21,6 +21,12 @@
             <artifactId>mockly-core</artifactId>
         </dependency>
 
+        <!-- mockly-security (for JWT in WebSocket) -->
+        <dependency>
+            <groupId>com.mockly</groupId>
+            <artifactId>mockly-security</artifactId>
+        </dependency>
+
         <!-- Spring Boot Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

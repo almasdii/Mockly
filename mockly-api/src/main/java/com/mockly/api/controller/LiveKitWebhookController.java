@@ -48,7 +48,7 @@ public class LiveKitWebhookController {
         
         log.info("Received LiveKit webhook: {}", payload);
 
-        // Verify webhook signature if secret is configured
+
         if (webhookSecret != null && !webhookSecret.isEmpty() && authorization != null) {
             if (!verifyWebhookSignature(authorization, payload)) {
                 log.warn("Invalid webhook signature");
@@ -56,7 +56,6 @@ public class LiveKitWebhookController {
             }
         }
 
-        // Process webhook event
         String event = (String) payload.get("event");
         if (event == null) {
             log.warn("Webhook missing event field");
@@ -163,16 +162,14 @@ public class LiveKitWebhookController {
 
     private boolean verifyWebhookSignature(String authorization, Map<String, Object> payload) {
         try {
-            // LiveKit webhook signature verification
-            // Format: Authorization: Bearer <signature>
+
             if (!authorization.startsWith("Bearer ")) {
                 return false;
             }
 
             String signature = authorization.substring(7);
-            
-            // Create expected signature
-            String payloadJson = payload.toString(); // Simplified - should use proper JSON serialization
+
+            String payloadJson = payload.toString();
             Mac mac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKey = new SecretKeySpec(
                     webhookSecret.getBytes(StandardCharsets.UTF_8), 

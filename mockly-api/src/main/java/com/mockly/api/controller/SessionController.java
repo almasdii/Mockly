@@ -175,8 +175,8 @@ public class SessionController {
         // Verify user has access to session
         sessionService.getSession(id, userId);
         
-        // Get user display name (simplified - in production, get from profile)
-        String displayName = "User"; // TODO: Get from user profile
+        // Get user display name from profile
+        String displayName = sessionService.getUserDisplayName(userId);
         
         LiveKitTokenResponse response = liveKitService.generateToken(id, userId, displayName);
         return ResponseEntity.ok(response);
