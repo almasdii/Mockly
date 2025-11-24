@@ -15,6 +15,9 @@ import com.mockly.data.repository.ProfileRepository;
 import com.mockly.data.repository.UserRepository;
 import com.mockly.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -35,35 +39,57 @@ public class AuthService {
     private final RedisTemplate<String, String> redisTemplate;
 
     private static final String REFRESH_TOKEN_PREFIX = "refresh_token:";
-    private static final long REFRESH_TOKEN_EXPIRATION_MS = 86400000L; // 24 hours
+    private static final long REFRESH_TOKEN_EXPIRATION_MS = 86400000L;
+
 
     @Transactional
     public TokenResponse register(RegisterRequest request) {
+        log.info("=== REGISTRATION START ===");
+
         if (userRepository.existsByEmail(request.email())) {
-            throw new EmailAlreadyExistsException(request.email());
+            throw new EmailAlreadyExistsException("Email already in use: " + request.email());
         }
 
+        // 1. Создать User БЕЗ Profile
         User user = User.builder()
                 .email(request.email())
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .build();
 
+        log.info("User created (before save): id = {}", user.getId());
+
+        // 2. Сохранить User
         user = userRepository.save(user);
 
+        log.info("User saved: id = {}", user.getId());
+
+        // 3. ВАЖНО! НЕ ОБРАЩАЙСЯ к user.getProfile() здесь!
+        // Не делай: user.getProfile() или user.setProfile()
+
+        // 4. Создать Profile
+        // ВАЖНО: При использовании @MapsId НЕ устанавливаем userId вручную!
+        // Hibernate автоматически установит userId из user.id
         Profile profile = Profile.builder()
-                .userId(user.getId())
-                .user(user)
+                .user(user)               // ← Только связь с User (userId установится автоматически)
                 .role(request.role())
                 .displayName(request.displayName())
                 .skills(List.of())
                 .build();
 
-        profileRepository.save(profile);
+        log.info("Profile created for user: id = {}", user.getId());
 
+        // 5. Сохранить Profile ОТДЕЛЬНО
+        profile = profileRepository.save(profile);
+
+        log.info("Profile saved successfully");
+
+        // 6. Генерация токенов
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), request.role());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 
         storeRefreshToken(refreshToken, user.getId());
+
+        log.info("=== REGISTRATION SUCCESS ===");
 
         return new TokenResponse(accessToken, refreshToken, user.getId());
     }

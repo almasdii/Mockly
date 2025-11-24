@@ -25,7 +25,7 @@ public class Profile {
     @Column(name = "user_id")
     private UUID userId;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @OneToOne
     @MapsId
     @JoinColumn(name = "user_id")
     private User user;
@@ -47,10 +47,10 @@ public class Profile {
     @Column(columnDefinition = "jsonb")
     @Builder.Default
     private List<String> skills = List.of();
-
     public enum ProfileRole {
         CANDIDATE,
         INTERVIEWER
     }
+
 }
 

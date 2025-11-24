@@ -25,7 +25,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: validate
     show-sql: true
     open-in-view: false
     properties:
@@ -41,12 +41,12 @@ spring:
           provider_disables_autocommit: false
 
   flyway:
-    enabled: false
+    enabled: true
 
   data:
     redis:
       host: ${REDIS_HOST:localhost}  # локальный Redis через проброс порта
-      port: ${REDIS_PORT:6379}
+      port: ${REDIS_PORT:26379}
       password: ${REDIS_PASSWORD:}
       timeout: 2000ms
       lettuce:
@@ -84,7 +84,7 @@ logging:
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
 jwt:
-  secret: ${JWT_SECRET:CHANGE-ME-256-BITS}
+  secret: ${JWT_SECRET:your-secret-key-must-be-at-least-64-bytes-long-for-hs512-algorithm-to-work-properly-and-securely-in-production-environment}
   access-token-expiration: ${JWT_EXPIRATION:3600000}
   refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
@@ -93,6 +93,12 @@ minio:
   access-key: ${MINIO_ACCESS_KEY:minioadmin}
   secret-key: ${MINIO_SECRET_KEY:minioadmin}
   bucket-name: ${MINIO_BUCKET:mockly}
+
+livekit:
+  url: ${LIVEKIT_URL:http://localhost:7880}
+  api-key: ${LIVEKIT_API_KEY:}
+  api-secret: ${LIVEKIT_API_SECRET:}
+  webhook-secret: ${LIVEKIT_WEBHOOK_SECRET:}
 
 management:
   endpoints:

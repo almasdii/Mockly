@@ -1,6 +1,3 @@
--- V1__init_schema.sql
--- Создание базовой схемы для пользователей и профилей
-
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Users table
@@ -112,3 +109,61 @@ CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions
 
 CREATE TRIGGER update_reports_updated_at BEFORE UPDATE ON reports
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TABLE profiles
+(
+    user_id      UUID        NOT NULL,
+    role         VARCHAR(20) NOT NULL,
+    display_name VARCHAR(100),
+    avatar_url   VARCHAR(500),
+    level        VARCHAR(50),
+    skills       JSONB,
+    CONSTRAINT pk_profiles PRIMARY KEY (user_id)
+);
+
+CREATE TABLE users
+(
+    id            UUID                        NOT NULL,
+    email         VARCHAR(255)                NOT NULL,
+    password_hash TEXT                        NOT NULL,
+    created_at    TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    CONSTRAINT pk_users PRIMARY KEY (id)
+);
+
+ALTER TABLE users
+    ADD CONSTRAINT uc_users_email UNIQUE (email);
+
+CREATE INDEX idx_profiles_role ON profiles (role);
+
+CREATE INDEX idx_users_email ON users (email);
+
+ALTER TABLE profiles
+    ADD CONSTRAINT FK_PROFILES_ON_USER FOREIGN KEY (user_id) REFERENCES users (id);
+CREATE TABLE profiles
+(
+    user_id      UUID        NOT NULL,
+    role         VARCHAR(20) NOT NULL,
+    display_name VARCHAR(100),
+    avatar_url   VARCHAR(500),
+    level        VARCHAR(50),
+    skills       JSONB,
+    CONSTRAINT pk_profiles PRIMARY KEY (user_id)
+);
+
+CREATE TABLE users
+(
+    id            UUID                        NOT NULL,
+    email         VARCHAR(255)                NOT NULL,
+    password_hash TEXT                        NOT NULL,
+    created_at    TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    CONSTRAINT pk_users PRIMARY KEY (id)
+);
+
+ALTER TABLE users
+    ADD CONSTRAINT uc_users_email UNIQUE (email);
+
+CREATE INDEX idx_profiles_role ON profiles (role);
+
+CREATE INDEX idx_users_email ON users (email);
+
+ALTER TABLE profiles
+    ADD CONSTRAINT FK_PROFILES_ON_USER FOREIGN KEY (user_id) REFERENCES users (id);

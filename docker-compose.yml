@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: mockly
       POSTGRES_USER: mockly
       POSTGRES_PASSWORD: mockly_password
+      LANG: en_US.utf8
+      LC_ALL: en_US.utf8
     ports:
       - "5432:5432"
     volumes:
@@ -22,7 +24,7 @@ services:
     image: redis:7-alpine
     container_name: mockly-redis
     ports:
-      - "6379:6379"
+      - "26379:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
@@ -32,8 +34,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # MinIO временно отключен из-за проблем с портами в Windows
-  # Раскомментируйте, когда понадобится хранилище файлов
+
   # minio:
   #   image: minio/minio:latest
   #   container_name: mockly-minio
