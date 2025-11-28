@@ -46,7 +46,8 @@ mvn spring-boot:run
   "email": "test@example.com",
   "password": "password123",
   "role": "CANDIDATE",
-  "displayName": "Test User"
+  "name": "Test",
+  "surname": "User"
 }
 ```
 5. Нажмите "Execute"

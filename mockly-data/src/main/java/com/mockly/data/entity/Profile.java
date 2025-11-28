@@ -34,8 +34,11 @@ public class Profile {
     @Column(nullable = false, length = 20)
     private ProfileRole role;
 
-    @Column(name = "display_name", length = 100)
-    private String displayName;
+    @Column(name = "name", length = 50)
+    private String name;
+
+    @Column(name = "surname", length = 50)
+    private String surname;
 
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;

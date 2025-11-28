@@ -15,9 +15,13 @@ public record RegisterRequest(
         @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
         String password,
 
-        @NotBlank(message = "Display name is required")
-        @Size(max = 100, message = "Display name must not exceed 100 characters")
-        String displayName,
+        @NotBlank(message = "Name is required")
+        @Size(max = 50, message = "Name must not exceed 50 characters")
+        String name,
+
+        @NotBlank(message = "Surname is required")
+        @Size(max = 50, message = "Surname must not exceed 50 characters")
+        String surname,
 
         @NotNull(message = "Role is required")
         Profile.ProfileRole role

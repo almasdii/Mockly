@@ -4,6 +4,7 @@ import com.mockly.core.dto.session.ArtifactResponse;
 import com.mockly.core.dto.session.SessionParticipantResponse;
 import com.mockly.core.dto.session.SessionResponse;
 import com.mockly.data.entity.Artifact;
+import com.mockly.data.entity.Profile;
 import com.mockly.data.entity.Session;
 import com.mockly.data.entity.SessionParticipant;
 import org.mapstruct.Mapper;
@@ -22,7 +23,7 @@ public interface SessionMapper {
      * Convert Session entity to SessionResponse DTO.
      * Maps nested participants and artifacts.
      */
-    @Mapping(target = "creatorDisplayName", expression = "java(session.getCreator() != null && session.getCreator().getProfile() != null ? session.getCreator().getProfile().getDisplayName() : null)")
+    @Mapping(target = "creatorDisplayName", expression = "java(getFullName(session.getCreator() != null && session.getCreator().getProfile() != null ? session.getCreator().getProfile() : null))")
     @Mapping(target = "participants", source = "participants")
     @Mapping(target = "artifacts", source = "artifacts")
     SessionResponse toResponse(Session session);
@@ -30,7 +31,7 @@ public interface SessionMapper {
     /**
      * Convert SessionParticipant entity to SessionParticipantResponse DTO.
      */
-    @Mapping(target = "userDisplayName", expression = "java(participant.getUser() != null && participant.getUser().getProfile() != null ? participant.getUser().getProfile().getDisplayName() : null)")
+    @Mapping(target = "userDisplayName", expression = "java(getFullName(participant.getUser() != null && participant.getUser().getProfile() != null ? participant.getUser().getProfile() : null))")
     @Mapping(target = "userEmail", expression = "java(participant.getUser() != null ? participant.getUser().getEmail() : null)")
     SessionParticipantResponse toResponse(SessionParticipant participant);
 
@@ -53,5 +54,27 @@ public interface SessionMapper {
      * Convert list of Artifact entities to list of ArtifactResponse DTOs.
      */
     List<ArtifactResponse> toArtifactResponseList(List<Artifact> artifacts);
+
+    /**
+     * Helper method to combine name and surname into full name.
+     */
+    default String getFullName(Profile profile) {
+        if (profile == null) {
+            return null;
+        }
+        String name = profile.getName();
+        String surname = profile.getSurname();
+        
+        if (name != null && !name.isBlank() && surname != null && !surname.isBlank()) {
+            return name + " " + surname;
+        }
+        if (name != null && !name.isBlank()) {
+            return name;
+        }
+        if (surname != null && !surname.isBlank()) {
+            return surname;
+        }
+        return null;
+    }
 }
 

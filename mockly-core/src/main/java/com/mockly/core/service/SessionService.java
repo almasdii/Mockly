@@ -377,19 +377,31 @@ public class SessionService {
 
     /**
      * Get user display name from profile.
-     * Falls back to email if display name is not set.
+     * Combines name and surname, falls back to email if not set.
      *
      * @param userId User ID
-     * @return Display name or email
+     * @return Display name (name + surname) or email
      */
     @Transactional(readOnly = true)
     public String getUserDisplayName(UUID userId) {
         return profileRepository.findByUserId(userId)
                 .map(profile -> {
-                    if (profile.getDisplayName() != null && !profile.getDisplayName().isBlank()) {
-                        return profile.getDisplayName();
+                    String name = profile.getName();
+                    String surname = profile.getSurname();
+                    
+                    // Combine name and surname if both are set
+                    if (name != null && !name.isBlank() && surname != null && !surname.isBlank()) {
+                        return name + " " + surname;
                     }
-                    // Fallback to email if display name is not set
+                    // Use only name if surname is not set
+                    if (name != null && !name.isBlank()) {
+                        return name;
+                    }
+                    // Use only surname if name is not set
+                    if (surname != null && !surname.isBlank()) {
+                        return surname;
+                    }
+                    // Fallback to email if neither name nor surname is set
                     return userRepository.findById(userId)
                             .map(user -> user.getEmail())
                             .orElse("User");

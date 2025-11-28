@@ -68,7 +68,8 @@ class AuthControllerIntegrationTest {
         validRegisterRequest = new RegisterRequest(
                 "test@example.com",
                 "password123",
-                "Test User",
+                "Test",
+                "User",
                 Profile.ProfileRole.CANDIDATE
         );
 
@@ -97,7 +98,8 @@ class AuthControllerIntegrationTest {
         RegisterRequest invalidRequest = new RegisterRequest(
                 "invalid-email",
                 "password123",
-                "Test User",
+                "Test",
+                "User",
                 Profile.ProfileRole.CANDIDATE
         );
 
@@ -113,7 +115,8 @@ class AuthControllerIntegrationTest {
         RegisterRequest invalidRequest = new RegisterRequest(
                 "test@example.com",
                 "short",
-                "Test User",
+                "Test",
+                "User",
                 Profile.ProfileRole.CANDIDATE
         );
 

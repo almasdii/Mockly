@@ -7,7 +7,8 @@ import java.util.UUID;
 public record UserResponse(
         UUID id,
         String email,
-        String displayName,
+        String name,
+        String surname,
         Profile.ProfileRole role,
         String avatarUrl,
         String level,

@@ -71,7 +71,8 @@ class AuthServiceTest {
         registerRequest = new RegisterRequest(
                 "test@example.com",
                 "password123",
-                "Test User",
+                "Test",
+                "User",
                 Profile.ProfileRole.CANDIDATE
         );
 
@@ -85,7 +86,8 @@ class AuthServiceTest {
                 .userId(testUserId)
                 .user(testUser)
                 .role(Profile.ProfileRole.CANDIDATE)
-                .displayName("Test User")
+                .name("Test")
+                .surname("User")
                 .skills(List.of())
                 .build();
 

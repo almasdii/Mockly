@@ -31,7 +31,8 @@ public class UserService {
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
-                profile.getDisplayName(),
+                profile.getName(),
+                profile.getSurname(),
                 profile.getRole(),
                 profile.getAvatarUrl(),
                 profile.getLevel(),
@@ -49,7 +50,8 @@ public class UserService {
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
-                profile.getDisplayName(),
+                profile.getName(),
+                profile.getSurname(),
                 profile.getRole(),
                 profile.getAvatarUrl(),
                 profile.getLevel(),
@@ -62,8 +64,11 @@ public class UserService {
         Profile profile = profileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Profile not found for user: " + userId));
 
-        if (request.displayName() != null) {
-            profile.setDisplayName(request.displayName());
+        if (request.name() != null) {
+            profile.setName(request.name());
+        }
+        if (request.surname() != null) {
+            profile.setSurname(request.surname());
         }
         if (request.avatarUrl() != null) {
             profile.setAvatarUrl(request.avatarUrl());
@@ -80,7 +85,8 @@ public class UserService {
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
-                profile.getDisplayName(),
+                profile.getName(),
+                profile.getSurname(),
                 profile.getRole(),
                 profile.getAvatarUrl(),
                 profile.getLevel(),

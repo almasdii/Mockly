@@ -45,7 +45,8 @@ curl -X POST $BASE_URL/api/auth/register \
     "email": "candidate@test.com",
     "password": "password123",
     "role": "CANDIDATE",
-    "displayName": "John Candidate"
+    "name": "John",
+    "surname": "Candidate"
   }' | jq
 ```
 
@@ -60,7 +61,8 @@ curl -X POST $BASE_URL/api/auth/register \
     "email": "interviewer@test.com",
     "password": "password123",
     "role": "INTERVIEWER",
-    "displayName": "Jane Interviewer"
+    "name": "Jane",
+    "surname": "Interviewer"
   }' | jq
 ```
 
@@ -101,7 +103,8 @@ curl -X PATCH $BASE_URL/api/users/me \
   -H "Authorization: Bearer $CANDIDATE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "displayName": "John Updated",
+    "name": "John",
+    "surname": "Updated",
     "level": "Senior",
     "skills": ["Java", "Spring", "PostgreSQL"]
   }' | jq
@@ -398,7 +401,8 @@ CANDIDATE_RESPONSE=$(curl -s -X POST $BASE_URL/api/auth/register \
     "email": "e2e-candidate@test.com",
     "password": "password123",
     "role": "CANDIDATE",
-    "displayName": "E2E Candidate"
+    "name": "E2E",
+    "surname": "Candidate"
   }')
 
 CANDIDATE_TOKEN=$(echo $CANDIDATE_RESPONSE | jq -r '.accessToken')
@@ -412,7 +416,8 @@ INTERVIEWER_RESPONSE=$(curl -s -X POST $BASE_URL/api/auth/register \
     "email": "e2e-interviewer@test.com",
     "password": "password123",
     "role": "INTERVIEWER",
-    "displayName": "E2E Interviewer"
+    "name": "E2E",
+    "surname": "Interviewer"
   }')
 
 INTERVIEWER_TOKEN=$(echo $INTERVIEWER_RESPONSE | jq -r '.accessToken')

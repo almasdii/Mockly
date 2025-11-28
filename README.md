@@ -210,7 +210,8 @@ curl http://localhost:8080/actuator/health
        "email": "candidate@example.com",
        "password": "password123",
        "role": "CANDIDATE",
-       "displayName": "John Doe"
+       "name": "John",
+       "surname": "Doe"
      }
      ```
 4. Скопируйте `accessToken` из ответа
@@ -229,7 +230,8 @@ curl -X POST http://localhost:8080/api/auth/register \
     "email": "candidate@example.com",
     "password": "password123",
     "role": "CANDIDATE",
-    "displayName": "John Doe"
+    "name": "John",
+    "surname": "Doe"
   }'
 ```
 

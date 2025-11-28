@@ -16,8 +16,6 @@ import com.mockly.data.repository.UserRepository;
 import com.mockly.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -72,7 +70,8 @@ public class AuthService {
         Profile profile = Profile.builder()
                 .user(user)               // ← Только связь с User (userId установится автоматически)
                 .role(request.role())
-                .displayName(request.displayName())
+                .name(request.name())
+                .surname(request.surname())
                 .skills(List.of())
                 .build();
 

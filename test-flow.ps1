@@ -18,7 +18,8 @@ try {
     $candidateBody = @{
         email = $CANDIDATE_EMAIL
         password = $PASSWORD
-        displayName = "Test Candidate"
+        name = "Test"
+        surname = "Candidate"
         role = "CANDIDATE"
     } | ConvertTo-Json
     
@@ -38,7 +39,8 @@ try {
     $interviewerBody = @{
         email = $INTERVIEWER_EMAIL
         password = $PASSWORD
-        displayName = "Test Interviewer"
+        name = "Test"
+        surname = "Interviewer"
         role = "INTERVIEWER"
     } | ConvertTo-Json
     
@@ -59,7 +61,16 @@ try {
         -Method GET `
         -Headers @{Authorization = "Bearer $CANDIDATE_TOKEN"}
     Write-Host "✓ Profile retrieved" -ForegroundColor Green
-    Write-Host "  Name: $($candidateProfile.displayName)" -ForegroundColor Gray
+    $fullName = if ($candidateProfile.name -and $candidateProfile.surname) {
+        "$($candidateProfile.name) $($candidateProfile.surname)"
+    } elseif ($candidateProfile.name) {
+        $candidateProfile.name
+    } elseif ($candidateProfile.surname) {
+        $candidateProfile.surname
+    } else {
+        "N/A"
+    }
+    Write-Host "  Name: $fullName" -ForegroundColor Gray
     Write-Host "  Role: $($candidateProfile.role)" -ForegroundColor Gray
     Write-Host ""
 

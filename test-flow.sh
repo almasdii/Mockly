@@ -20,7 +20,8 @@ CANDIDATE_RESPONSE=$(curl -s -X POST "$BASE_URL/api/auth/register" \
   -d "{
     \"email\": \"$CANDIDATE_EMAIL\",
     \"password\": \"$PASSWORD\",
-    \"displayName\": \"Test Candidate\",
+    \"name\": \"Test\",
+    \"surname\": \"Candidate\",
     \"role\": \"CANDIDATE\"
   }")
 
@@ -37,7 +38,8 @@ INTERVIEWER_RESPONSE=$(curl -s -X POST "$BASE_URL/api/auth/register" \
   -d "{
     \"email\": \"$INTERVIEWER_EMAIL\",
     \"password\": \"$PASSWORD\",
-    \"displayName\": \"Test Interviewer\",
+    \"name\": \"Test\",
+    \"surname\": \"Interviewer\",
     \"role\": \"INTERVIEWER\"
   }")
 

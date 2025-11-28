@@ -27,11 +27,11 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ArtifactService {
 
-    private static final long MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 500MB
+    private static final long MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
             "audio/mpeg", "audio/mp3", "audio/wav", "audio/wave", "audio/x-wav",
             "audio/webm", "audio/ogg", "audio/mp4", "audio/x-m4a",
-            "application/octet-stream" // For raw WebRTC data
+            "application/octet-stream"
     );
     private static final List<String> ALLOWED_EXTENSIONS = List.of(
             ".mp3", ".wav", ".webm", ".ogg", ".m4a", ".mp4", ".bin", ".raw"
