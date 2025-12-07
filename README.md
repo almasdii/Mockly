@@ -1,97 +1,100 @@
 # Mockly Backend
 
-Backend платформа для проведения mock интервью с поддержкой WebRTC, обработки аудио через ML сервисы и генерации отчетов.
+Backend platform for conducting mock interviews with support for WebRTC, audio processing via ML services, and report generation.
 
-## 📋 Содержание
+##  Table of Contents
 
-- [Описание](#описание)
-- [Технологии](#технологии)
-- [Требования](#требования)
-- [Установка](#установка)
-- [Конфигурация](#конфигурация)
-- [Запуск проекта](#запуск-проекта)
-- [Тестирование](#тестирование)
-- [API Документация](#api-документация)
-- [Структура проекта](#структура-проекта)
+- [Description](#описание)
+- [echnologies](#технологии)
+- [Requirements](#требования)
+- [Installation](#установка)
+- [Configuration](#конфигурация)
+- [Running the Project](#запуск-проекта)
+- [Testing](#тестирование)
+- [API Documentation](#api-документация)
+- [Project Structure](#структура-проекта)
 
-## 📖 Описание
+##  Description
+Mockly is a platform for conducting mock interviews with the following features:
 
-Mockly - это платформа для проведения mock интервью с следующими возможностями:
+- Authentication and Authorization – JWT tokens, registration, login
+- Session Management – creating, joining, and finishing interviews
+- WebRTC Integration – LiveKit for video calls
+- Artifact Uploading – MinIO for storing audio files (up to 500MB)
+- ML Processing – integration with an ML service for interview analysis
+- Report Generation – automatic creation of reports with metrics
+- WebSocket – real-time updates via STOMP
+- Transcripts – storing interview transcripts
 
-- **Аутентификация и авторизация** - JWT токены, регистрация, логин
-- **Управление сессиями** - создание, присоединение, завершение интервью
-- **WebRTC интеграция** - LiveKit для видеозвонков
-- **Загрузка артефактов** - MinIO для хранения аудио файлов (до 500MB)
-- **ML обработка** - интеграция с ML сервисом для анализа интервью
-- **Генерация отчетов** - автоматическая генерация отчетов с метриками
-- **WebSocket** - real-time обновления через STOMP
-- **Транскрипты** - сохранение транскриптов интервью
+## Technologies
 
-## 🛠 Технологии
+- Java 21 – programming language
+- Spring Boot 3.3.2 – framework
+- PostgreSQL 16 – database
+- Redis 7 – caching
+- MinIO – S3-compatible object storage
+- Flyway – database migrations
+- JWT – authentication
+- WebSocket/STOMP – real-time communication
+- LiveKit – WebRTC platform
+- Maven – dependency management
 
-- **Java 21** - язык программирования
-- **Spring Boot 3.3.2** - фреймворк
-- **PostgreSQL 16** - база данных
-- **Redis 7** - кэширование
-- **MinIO** - S3-совместимое хранилище
-- **Flyway** - миграции БД
-- **JWT** - аутентификация
-- **WebSocket/STOMP** - real-time коммуникация
-- **LiveKit** - WebRTC платформа
-- **Maven** - управление зависимостями
+##  Requirements
 
-## 📦 Требования
+Before starting, make sure you have installed:
 
-Перед запуском убедитесь, что установлены:
+- Java 21 or higher
+- Maven 3.8+
+- Docker and Docker Compose (for infrastructure)
+- Git
 
-- **Java 21** или выше
-- **Maven 3.8+**
-- **Docker** и **Docker Compose** (для инфраструктуры)
-- **Git**
-
-Проверка версий:
+Check versions:
 
 ```bash
-java -version  # Должна быть Java 21+
-mvn -version   # Должна быть Maven 3.8+
+java -version  # Should be Java 21+
+mvn -version   # Should be Maven 3.8+
 docker --version
 docker-compose --version
 ```
 
-## 🚀 Установка
+##  Installation
 
-### 1. Клонирование репозитория
+### 1. Clone the repository
 
 ```bash
 git clone <repository-url>
 cd mock4
+
 ```
 
-### 2. Сборка проекта
+### 2. Build the project
 
 ```bash
 mvn clean install
 ```
 
-Это соберет все модули проекта:
-- `mockly-data` - слой данных
-- `mockly-security` - безопасность
-- `mockly-core` - бизнес-логика
-- `mockly-api` - REST API
+This will build all project modules:
 
-## ⚙️ Конфигурация
+- mockly-data – data layer
+- mockly-security – security
+- mockly-core – business logic
+- mockly-api – REST API
 
-### Переменные окружения
 
-Проект использует переменные окружения для конфигурации. Основные настройки находятся в `mockly-api/src/main/resources/application.yml`.
 
-#### Обязательные переменные (для продакшена):
+##  Configuration
+
+### Environment Variable
+
+The project uses environment variables for configuration. Main settings are located in: `mockly-api/src/main/resources/application.yml`.
+
+#### Required variables (for production):
 
 ```bash
 # JWT
 JWT_SECRET=your-secret-key-must-be-at-least-64-bytes-long-for-hs512-algorithm
 
-# База данных
+# Database
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/mockly
 SPRING_DATASOURCE_USERNAME=mockly
 SPRING_DATASOURCE_PASSWORD=mockly_password
@@ -102,18 +105,19 @@ MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_BUCKET=mockly-artifacts
 
-# LiveKit (опционально)
+# LiveKit (optional)
 LIVEKIT_URL=http://localhost:7880
 LIVEKIT_API_KEY=your-api-key
 LIVEKIT_API_SECRET=your-api-secret
 
-# ML Service (опционально)
+# ML Service (optional)
 ML_SERVICE_URL=http://localhost:8000
+
 ```
 
-#### Создание .env файла (опционально)
+#### Creating a .env file (optional)
 
-Создайте файл `.env` в корне проекта:
+Create a .env file in the project root:
 
 ```env
 JWT_SECRET=your-secret-key-must-be-at-least-64-bytes-long-for-hs512-algorithm-to-work-properly-and-securely-in-production-environment
@@ -121,30 +125,28 @@ SPRING_PROFILES_ACTIVE=dev
 SERVER_PORT=8080
 ```
 
-## 🏃 Запуск проекта
+## Running the Project
 
-### Шаг 1: Запуск инфраструктуры (Docker Compose)
+### Step 1: Start the infrastructure (Docker Compose)
 
-Запустите PostgreSQL, Redis и MinIO:
+Run PostgreSQL, Redis, and MinIO:
 
 ```bash
 docker-compose up -d
 ```
 
-Проверьте, что все сервисы запущены:
+Check running services:
 
 ```bash
 docker-compose ps
 ```
 
-Должны быть запущены:
-- `mockly-postgres` (порт 5432)
-- `mockly-redis` (порт 26379)
-- `mockly-minio` (порты 19000, 19001)
+You should see:
+- mockly-postgres (port 5432)
+- mockly-redis (port 26379)
+- mockly-minio (ports 19000, 19001)
 
-### Шаг 2: Проверка подключения к БД
-
-Убедитесь, что PostgreSQL доступен:
+### Step 2: Verify database connection
 
 ```bash
 # Windows PowerShell
@@ -154,55 +156,56 @@ docker-compose ps
 ./check-connection.sh
 ```
 
-Или вручную:
+Or manually:
 
 ```bash
 docker exec -it mockly-postgres psql -U mockly -d mockly -c "SELECT 1;"
 ```
 
-### Шаг 3: Запуск приложения
+### Step 3: Run the application
 
-#### Вариант A: Через Maven
+#### Option A: Using Maven
 
 ```bash
 cd mockly-api
 mvn spring-boot:run
 ```
 
-#### Вариант B: Через IDE
+#### Option B: Using an IDE
 
-1. Откройте проект в IntelliJ IDEA или Eclipse
-2. Найдите класс `MocklyApplication.java` в `mockly-api/src/main/java/com/mockly/`
-3. Запустите как Spring Boot приложение
+1. Open the project in IntelliJ IDEA or Eclipse 
+2. Locate MocklyApplication.java in
+   mockly-api/src/main/java/com/mockly/
+3. Run it as a Spring Boot application
 
-#### Вариант C: Собранный JAR
+#### Option C: Using the built JAR
 
 ```bash
 mvn clean package
 java -jar mockly-api/target/mockly-api-1.0.0-SNAPSHOT.jar
 ```
 
-### Шаг 4: Проверка запуска
+### Step 4: Verify the application
 
-Приложение должно запуститься на `http://localhost:8080`
+The app should run at: `http://localhost:8080`
 
-Проверьте health endpoint:
+Health check:
 
 ```bash
 curl http://localhost:8080/actuator/health
 ```
 
-Или откройте в браузере:
+Open in browser:
 - Swagger UI: http://localhost:8080/swagger-ui.html
 - API Docs: http://localhost:8080/v3/api-docs
 
-## 🧪 Тестирование
+## Testing
 
-### 1. Тестирование через Swagger UI
+### 1. Testing via Swagger UI
 
-1. Откройте http://localhost:8080/swagger-ui.html
-2. Найдите секцию **Authentication**
-3. Зарегистрируйте пользователя:
+1. Open http://localhost:8080/swagger-ui.html
+2. Find Authentication section
+3. Register a user:
    - Endpoint: `POST /api/auth/register`
    - Body:
      ```json
@@ -214,14 +217,14 @@ curl http://localhost:8080/actuator/health
        "surname": "Doe"
      }
      ```
-4. Скопируйте `accessToken` из ответа
-5. Нажмите кнопку **Authorize** вверху страницы
-6. Введите: `Bearer <ваш-token>`
-7. Теперь можете тестировать защищенные endpoints
+4. Copy the returned accessToken
+5. Click Authorize
+6. Enter: Bearer <your-token>
+7. Now you can test all secured endpoints
 
-### 2. Тестирование через cURL
+### 2. Testing via cURL
 
-#### Регистрация пользователя
+#### Register
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/register \
@@ -235,7 +238,7 @@ curl -X POST http://localhost:8080/api/auth/register \
   }'
 ```
 
-Ответ:
+Response:
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzUxMiJ9...",
@@ -244,7 +247,7 @@ curl -X POST http://localhost:8080/api/auth/register \
 }
 ```
 
-#### Логин
+#### Login
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/login \
@@ -255,7 +258,7 @@ curl -X POST http://localhost:8080/api/auth/login \
   }'
 ```
 
-#### Создание сессии (требует авторизации)
+#### Create a session (requires auth)
 
 ```bash
 TOKEN="your-access-token-here"
@@ -269,20 +272,20 @@ curl -X POST http://localhost:8080/api/sessions \
   }'
 ```
 
-#### Получение текущего пользователя
+#### Get current user
 
 ```bash
 curl -X GET http://localhost:8080/api/users/me \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-### 3. Тестирование WebSocket
+### 3. Testing WebSocket
 
-#### Подключение с JWT токеном
+#### ПConnect with JWT token
 
-Используйте примеры из файла `WEBSOCKET_CLIENT_EXAMPLE.md`
+See examples in `WEBSOCKET_CLIENT_EXAMPLE.md`
 
-Быстрый тест с Node.js:
+Quick Node.js example
 
 ```javascript
 const SockJS = require('sockjs-client');
@@ -309,9 +312,9 @@ stompClient.connect(
 );
 ```
 
-### 4. Тестирование загрузки артефактов
+### 4. Testing artifact upload
 
-#### Шаг 1: Запросить URL для загрузки
+#### Step 1: Request upload URL
 
 ```bash
 SESSION_ID="your-session-id"
@@ -328,7 +331,7 @@ curl -X POST "http://localhost:8080/api/sessions/$SESSION_ID/artifacts/request-u
   }'
 ```
 
-Ответ:
+Response:
 ```json
 {
   "artifactId": "artifact-uuid",
@@ -338,7 +341,7 @@ curl -X POST "http://localhost:8080/api/sessions/$SESSION_ID/artifacts/request-u
 }
 ```
 
-#### Шаг 2: Загрузить файл на MinIO
+#### Step 2: Upload file to MinIO
 
 ```bash
 UPLOAD_URL="pre-signed-url-from-step-1"
@@ -348,7 +351,7 @@ curl -X PUT "$UPLOAD_URL" \
   --data-binary "@interview.mp3"
 ```
 
-#### Шаг 3: Завершить загрузку
+#### Step 3: Complete upload
 
 ```bash
 ARTIFACT_ID="artifact-id-from-step-1"
@@ -362,7 +365,7 @@ curl -X POST "http://localhost:8080/api/sessions/$SESSION_ID/artifacts/$ARTIFACT
   }'
 ```
 
-### 5. Тестирование генерации отчета
+### 5. Testing report generation
 
 ```bash
 SESSION_ID="your-session-id"
@@ -377,47 +380,46 @@ curl -X GET "http://localhost:8080/api/sessions/$SESSION_ID/report" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-## 📚 API Документация
+## API Documentation
 
-### Основные эндпоинты
+### Main Endpoints
 
-#### Аутентификация
-- `POST /api/auth/register` - Регистрация
-- `POST /api/auth/login` - Вход
-- `POST /api/auth/refresh` - Обновление токена
-- `POST /api/auth/logout` - Выход
+#### Authentication
+- `POST /api/auth/register` - Register
+- `POST /api/auth/login` - Login
+- `POST /api/auth/refresh` - Refresh token
+- `POST /api/auth/logout` - Logout
 
-#### Пользователи
-- `GET /api/users/me` - Текущий пользователь
-- `PATCH /api/users/me` - Обновление профиля
-- `GET /api/users/{id}` - Пользователь по ID
+#### Users
+- `GET /api/users/me` - Get current user
+- `PATCH /api/users/me` - Update profile
+- `GET /api/users/{id}` - Get user by ID
 
-#### Сессии
-- `POST /api/sessions` - Создать сессию
-- `GET /api/sessions` - Список сессий
-- `GET /api/sessions/{id}` - Сессия по ID
-- `POST /api/sessions/{id}/join` - Присоединиться
-- `POST /api/sessions/{id}/leave` - Покинуть
-- `POST /api/sessions/{id}/end` - Завершить
-- `GET /api/sessions/{id}/token` - LiveKit токен
+#### Sessions
+- `POST /api/sessions` -Create a session
+- `GET /api/sessions` - List sessions
+- `GET /api/sessions/{id}` - Get session
+- `POST /api/sessions/{id}/join` - Join session
+- `POST /api/sessions/{id}/leave` - Leave session
+- `POST /api/sessions/{id}/end` - End session
+- `GET /api/sessions/{id}/token` - LiveKit 
 
-#### Артефакты
+#### Artifacts
 - `POST /api/sessions/{id}/artifacts/request-upload` - Запросить URL загрузки
 - `POST /api/sessions/{id}/artifacts/{artifactId}/complete` - Завершить загрузку
 - `GET /api/sessions/{id}/artifacts` - Список артефактов
 - `GET /api/sessions/{id}/artifacts/{artifactId}` - Артефакт по ID
 
-#### Отчеты
+#### Swagger UI
 - `POST /api/sessions/{id}/report/trigger` - Запустить генерацию
 - `GET /api/sessions/{id}/report` - Получить отчет
 
 ### Swagger UI
 
-Интерактивная документация доступна по адресу:
 - **Swagger UI**: http://localhost:8080/swagger-ui.html
 - **OpenAPI JSON**: http://localhost:8080/v3/api-docs
 
-## 📁 Структура проекта
+##  Project Structure
 
 ```
 mock4/
@@ -441,115 +443,104 @@ mock4/
 └── pom.xml                 # Родительский POM
 ```
 
-## 🔧 Настройка MinIO
+## 🔧  MinIO
 
-После запуска Docker Compose, MinIO доступен:
+After running Docker Compose, MinIO is available at:
 - **API**: http://localhost:19000
 - **Console**: http://localhost:19001
 - **Credentials**: `minioadmin` / `minioadmin`
 
-Bucket `mockly-artifacts` создается автоматически при старте приложения.
+Bucket mockly-artifacts is created automatically on app startup.
 
-## 🔧 Настройка LiveKit (опционально)
+## 🔧 LiveKit Setup (optional)
 
-Для работы с WebRTC нужен запущенный LiveKit сервер:
+To enable WebRTC features via LiveKit:
 
-1. Установите LiveKit: https://docs.livekit.io/home/self-hosting/deployment/
-2. Получите API ключ и секрет
-3. Настройте переменные окружения:
+1. Install  LiveKit: https://docs.livekit.io/home/self-hosting/deployment/
+2. Obtain API key and secret
+3. Set environment variables:
    ```bash
    LIVEKIT_URL=http://localhost:7880
    LIVEKIT_API_KEY=your-api-key
    LIVEKIT_API_SECRET=your-api-secret
    ```
 
-## 🔧 Настройка ML Service (опционально)
+## 🔧 ML Service Setup (optional)
 
-Для генерации отчетов нужен ML сервис:
+For report generation:
+Start ML service on port 8000
+The service must expose endpoint: POST /api/process
+Request/response format matches MLProcessRequest and MLProcessResponse
 
-1. Запустите ML сервис на порту 8000
-2. Сервис должен иметь endpoint: `POST /api/process`
-3. Формат запроса/ответа описан в `MLProcessRequest` и `MLProcessResponse`
+##  Troubleshooting
 
-## 🐛 Решение проблем
+### Issue: Application won't start
 
-### Проблема: Приложение не запускается
-
-1. Проверьте, что PostgreSQL запущен:
+1. Verify PostgreSQL is running:
    ```bash
    docker-compose ps
    ```
 
-2. Проверьте логи:
+2. Check logs:
    ```bash
    docker-compose logs postgres
    ```
 
-3. Проверьте подключение к БД:
+3. Test DB connection:
    ```bash
    docker exec -it mockly-postgres psql -U mockly -d mockly
    ```
 
-### Проблема: Ошибка миграций Flyway
+### Issue: Flyway migration errors
 
-1. Проверьте, что БД создана:
+1. Ensure DB exists:
    ```sql
    CREATE DATABASE mockly;
    ```
 
-2. Очистите схему и перезапустите:
+2. Reset everything:
    ```bash
    docker-compose down -v
    docker-compose up -d
    ```
 
-### Проблема: MinIO не доступен
+### Issue: MinIO unavailable
 
-1. Проверьте, что контейнер запущен:
+1. Check container:
    ```bash
    docker-compose ps minio
    ```
 
-2. Проверьте логи:
+2. Check logs:
    ```bash
    docker-compose logs minio
    ```
 
-3. Убедитесь, что порты 19000 и 19001 свободны
+3. Ensure ports 19000/19001 are free
 
-### Проблема: WebSocket не подключается
+### Issue: WebSocket authentication errors
 
-1. Проверьте, что JWT токен валиден
-2. Убедитесь, что токен передается в заголовках:
+Verify JWT token
+Ensure headers include:
    ```javascript
    { Authorization: `Bearer ${token}` }
    ```
-3. Проверьте логи приложения на наличие ошибок аутентификации
+3.Application logs appear in the console.
+For production, configure logback to write to files.
 
-## 📝 Логи
 
-Логи приложения выводятся в консоль. Для продакшена настройте логирование в файл через `logback-spring.xml`.
 
-Уровни логирования настраиваются через переменные окружения:
-- `LOG_LEVEL=DEBUG` - для детальных логов
-- `SQL_LOG_LEVEL=DEBUG` - для SQL запросов
+Application logs appear in the console.
+For production, configure logback to write to files.
 
-## 🔒 Безопасность
+Configure log levels via env vars:
+LOG_LEVEL=DEBUG
+SQL_LOG_LEVEL=DEBUG
 
-- **JWT Secret**: В продакшене используйте длинный случайный секрет (минимум 64 байта)
-- **HTTPS**: Используйте HTTPS в продакшене
-- **CORS**: Настройте CORS для вашего фронтенда
-- **MinIO**: Измените дефолтные credentials MinIO
 
-## 📄 Лицензия
+JWT Secret — must be at least 64 bytes in production
+HTTPS — required in production
+CORS — configure allowed frontend origins
+MinIO — change default credentials
 
-[Укажите лицензию проекта]
-
-## 👥 Авторы
-
-[Укажите авторов проекта]
-
-## 🤝 Вклад в проект
-
-[Инструкции по контрибуции]
 
