@@ -48,7 +48,6 @@ public class AuthService {
             throw new EmailAlreadyExistsException("Email already in use: " + request.email());
         }
 
-        // 1. Создать User БЕЗ Profile
         User user = User.builder()
                 .email(request.email())
                 .passwordHash(passwordEncoder.encode(request.password()))
@@ -56,19 +55,14 @@ public class AuthService {
 
         log.info("User created (before save): id = {}", user.getId());
 
-        // 2. Сохранить User
+
         user = userRepository.save(user);
 
         log.info("User saved: id = {}", user.getId());
 
-        // 3. ВАЖНО! НЕ ОБРАЩАЙСЯ к user.getProfile() здесь!
-        // Не делай: user.getProfile() или user.setProfile()
 
-        // 4. Создать Profile
-        // ВАЖНО: При использовании @MapsId НЕ устанавливаем userId вручную!
-        // Hibernate автоматически установит userId из user.id
         Profile profile = Profile.builder()
-                .user(user)               // ← Только связь с User (userId установится автоматически)
+                .user(user)
                 .role(request.role())
                 .name(request.name())
                 .surname(request.surname())
@@ -77,12 +71,10 @@ public class AuthService {
 
         log.info("Profile created for user: id = {}", user.getId());
 
-        // 5. Сохранить Profile ОТДЕЛЬНО
         profile = profileRepository.save(profile);
 
         log.info("Profile saved successfully");
 
-        // 6. Генерация токенов
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), request.role());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 

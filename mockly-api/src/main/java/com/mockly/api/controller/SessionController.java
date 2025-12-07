@@ -29,7 +29,6 @@ import java.util.UUID;
 @Tag(name = "Sessions", description = "Interview session management endpoints")
 @SecurityRequirement(name = "bearerAuth")
 public class SessionController {
-
     private final SessionService sessionService;
     private final LiveKitService liveKitService;
     private final SessionEventPublisher eventPublisher;
@@ -45,8 +44,7 @@ public class SessionController {
             @Valid @RequestBody CreateSessionRequest request) {
         UUID userId = UUID.fromString(authentication.getName());
         SessionResponse response = sessionService.createSession(userId, request);
-        
-        // Publish WebSocket event
+
         Session session = sessionRepository.findById(response.id())
                 .orElse(null);
         if (session != null) {
@@ -67,7 +65,7 @@ public class SessionController {
         UUID userId = UUID.fromString(authentication.getName());
         SessionResponse response = sessionService.joinSession(id, userId);
         
-        // Publish WebSocket event
+
         Session session = sessionRepository.findById(id).orElse(null);
         if (session != null) {
             session.getParticipants().stream()

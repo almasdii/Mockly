@@ -65,7 +65,6 @@ public class SessionService {
             throw new ResourceNotFoundException("Interviewer not found: " + request.interviewerId());
         }
 
-        // Validation: Check if user already has an active session
         Optional<Session> activeSession = sessionRepository
                 .findFirstByCreatedByAndStatusInOrderByCreatedAtDesc(
                         userId,
@@ -78,7 +77,7 @@ public class SessionService {
             );
         }
 
-        // Create session
+
         Session session = Session.builder()
                 .createdBy(userId)
                 .status(SessionStatus.SCHEDULED)
@@ -88,12 +87,10 @@ public class SessionService {
 
         session = sessionRepository.save(session);
 
-        // Create LiveKit room (after session is saved to get ID)
         String roomId = liveKitService.createRoom(session.getId());
         session.setRoomId(roomId);
         session = sessionRepository.save(session);
 
-        // Add creator as candidate participant
         SessionParticipant candidateParticipant = SessionParticipant.builder()
                 .sessionId(session.getId())
                 .userId(userId)
@@ -102,7 +99,6 @@ public class SessionService {
 
         participantRepository.save(candidateParticipant);
 
-        // Add interviewer as participant
         SessionParticipant interviewerParticipant = SessionParticipant.builder()
                 .sessionId(session.getId())
                 .userId(request.interviewerId())
@@ -113,7 +109,6 @@ public class SessionService {
 
         log.info("Session created successfully: {}", session.getId());
 
-        // Load session with participants for response
         session = sessionRepository.findById(session.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found after creation"));
 
@@ -135,12 +130,12 @@ public class SessionService {
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
 
-        // Validate session status
+
         if (session.getStatus() == SessionStatus.ENDED || session.getStatus() == SessionStatus.CANCELED) {
             throw new BadRequestException("Cannot join a session that has ended or been canceled");
         }
 
-        // Check if user is already a participant
+
         Optional<SessionParticipant> existingParticipant = participantRepository
                 .findBySessionIdAndUserId(sessionId, userId);
 
@@ -152,22 +147,21 @@ public class SessionService {
                 participant.setJoinedAt(OffsetDateTime.now());
                 participantRepository.save(participant);
             }
-            // Already joined, return session
+
         } else {
-            // New participant - should not happen if session was created correctly
-            // But handle it gracefully
+
             log.warn("User {} joining session {} but not in participant list", userId, sessionId);
             throw new BadRequestException("User is not authorized to join this session");
         }
 
-        // Update session status to ACTIVE if it was SCHEDULED
+
         if (session.getStatus() == SessionStatus.SCHEDULED) {
             session.setStatus(SessionStatus.ACTIVE);
             session.setStartsAt(OffsetDateTime.now());
             sessionRepository.save(session);
         }
 
-        // Update participant joined_at if not set
+
         SessionParticipant participant = existingParticipant.get();
         if (participant.getJoinedAt() == null) {
             participant.setJoinedAt(OffsetDateTime.now());
@@ -176,7 +170,7 @@ public class SessionService {
 
         log.info("User {} successfully joined session {}", userId, sessionId);
 
-        // Reload session with participants
+
         session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found"));
 

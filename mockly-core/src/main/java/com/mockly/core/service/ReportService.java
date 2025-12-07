@@ -51,11 +51,11 @@ public class ReportService {
     public ReportResponse triggerReportGeneration(UUID sessionId, UUID userId) {
         log.info("Triggering report generation for session: {}", sessionId);
 
-        // Validate session exists
+
         sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
 
-        // Check if report already exists
+
         Optional<Report> existingReport = reportRepository.findBySessionId(sessionId);
         if (existingReport.isPresent()) {
             Report report = existingReport.get();
@@ -64,14 +64,14 @@ public class ReportService {
                 log.info("Report already exists and is {} for session: {}", report.getStatus(), sessionId);
                 return toResponse(report);
             }
-            // If FAILED, allow retry by updating status
+
             if (report.getStatus() == Report.ReportStatus.FAILED) {
                 report.setStatus(Report.ReportStatus.PENDING);
                 report.setErrorMessage(null);
                 report = reportRepository.save(report);
             }
         } else {
-            // Create new report
+
             Report report = Report.builder()
                     .sessionId(sessionId)
                     .status(Report.ReportStatus.PENDING)
@@ -79,7 +79,7 @@ public class ReportService {
             report = reportRepository.save(report);
         }
 
-        // Find audio artifact (prefer AUDIO_MIXED, fallback to others)
+
         Artifact artifact = artifactRepository.findFirstBySessionIdAndType(sessionId, ArtifactType.AUDIO_MIXED)
                 .orElseGet(() -> artifactRepository.findBySessionId(sessionId).stream()
                         .filter(a -> a.getType() == ArtifactType.AUDIO_LEFT || 
@@ -88,7 +88,7 @@ public class ReportService {
                         .orElseThrow(() -> new BadRequestException(
                                 "No audio artifact found for session. Please upload an audio file first.")));
 
-        // Start async processing
+
         processReportAsync(sessionId, artifact.getId());
 
         // Return current report status
@@ -110,18 +110,18 @@ public class ReportService {
                 .orElseThrow(() -> new ResourceNotFoundException("Report not found: " + sessionId));
 
         try {
-            // Update status to PROCESSING
+
             report.setStatus(Report.ReportStatus.PROCESSING);
             report = reportRepository.save(report);
 
-            // Get artifact
+
             Artifact artifact = artifactRepository.findById(artifactId)
                     .orElseThrow(() -> new ResourceNotFoundException("Artifact not found: " + artifactId));
 
-            // Generate download URL for artifact
+
             String artifactUrl = minIOService.generatePresignedDownloadUrl(artifact.getStorageUrl(), 3600);
 
-            // Call ML service
+
             var mlRequest = new com.mockly.core.dto.ml.MLProcessRequest(
                     sessionId,
                     artifactId,
@@ -131,7 +131,7 @@ public class ReportService {
 
             var mlResponse = mlServiceClient.process(mlRequest);
 
-            // Save transcript if provided
+
             if (mlResponse.transcript() != null && !mlResponse.transcript().isEmpty()) {
                 Transcript transcript = Transcript.builder()
                         .sessionId(sessionId)
@@ -142,7 +142,7 @@ public class ReportService {
                 log.info("Saved transcript for session: {}", sessionId);
             }
 
-            // Update report with results
+
             report.setMetrics(mlResponse.metrics());
             report.setSummary(mlResponse.summary());
             report.setRecommendations(mlResponse.recommendations());
@@ -152,7 +152,7 @@ public class ReportService {
 
             log.info("Report processing completed successfully for session: {}", sessionId);
 
-            // Publish event for report ready
+
             eventPublisher.publishEvent(new ReportReadyEvent(sessionId, toResponse(report)));
 
         } catch (Exception e) {
@@ -176,11 +176,11 @@ public class ReportService {
     public ReportResponse generateReport(UUID sessionId) {
         log.info("Generating report for session: {}", sessionId);
 
-        // Validate session exists
+
         sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
 
-        // Get or create report
+
         Report report = reportRepository.findBySessionId(sessionId)
                 .orElseGet(() -> {
                     Report newReport = Report.builder()
@@ -191,12 +191,12 @@ public class ReportService {
                 });
 
         try {
-            // Update status to PROCESSING
+
             report.setStatus(Report.ReportStatus.PROCESSING);
             report.setErrorMessage(null);
             report = reportRepository.save(report);
 
-            // Collect all artifacts for the session
+
             var allArtifacts = artifactRepository.findBySessionId(sessionId);
             if (allArtifacts.isEmpty()) {
                 throw new BadRequestException(
@@ -205,7 +205,7 @@ public class ReportService {
 
             log.info("Found {} artifacts for session: {}", allArtifacts.size(), sessionId);
 
-            // Find primary artifact (prefer AUDIO_MIXED, fallback to AUDIO_LEFT or AUDIO_RIGHT)
+
             Artifact primaryArtifact = allArtifacts.stream()
                     .filter(a -> a.getType() == ArtifactType.AUDIO_MIXED)
                     .findFirst()
@@ -219,11 +219,9 @@ public class ReportService {
             log.info("Using primary artifact: {} (type: {}) for ML processing", 
                     primaryArtifact.getId(), primaryArtifact.getType());
 
-            // Generate download URL for artifact
             String artifactUrl = minIOService.generatePresignedDownloadUrl(
                     primaryArtifact.getStorageUrl(), 3600);
 
-            // Build MLProcessRequest DTO
             var mlRequest = new com.mockly.core.dto.ml.MLProcessRequest(
                     sessionId,
                     primaryArtifact.getId(),
@@ -233,12 +231,12 @@ public class ReportService {
 
             log.info("Calling ML service for session: {}, artifact: {}", sessionId, primaryArtifact.getId());
 
-            // Call ML service via WebClient
+
             var mlResponse = mlServiceClient.process(mlRequest);
 
             log.info("ML service processing completed for session: {}", sessionId);
 
-            // Save transcript if provided
+
             if (mlResponse.transcript() != null && !mlResponse.transcript().isEmpty()) {
                 Transcript transcript = Transcript.builder()
                         .sessionId(sessionId)
@@ -249,7 +247,7 @@ public class ReportService {
                 log.info("Saved transcript for session: {}", sessionId);
             }
 
-            // Save MLProcessResponse to database as Report entity
+
             report.setMetrics(mlResponse.metrics());
             report.setSummary(mlResponse.summary());
             report.setRecommendations(mlResponse.recommendations());
@@ -259,26 +257,24 @@ public class ReportService {
 
             log.info("Report saved successfully for session: {}", sessionId);
 
-            // Build ReportResponse DTO
+
             ReportResponse reportResponse = toResponse(report);
 
-            // Trigger WebSocket event: reportReady
             eventPublisher.publishEvent(new ReportReadyEvent(sessionId, reportResponse));
 
             log.info("Report generation completed successfully for session: {}", sessionId);
 
-            // Return full ReportResponse DTO
             return reportResponse;
 
         } catch (BadRequestException | ResourceNotFoundException e) {
-            // Re-throw business exceptions
+
             log.error("Business error during report generation for session: {}", sessionId, e);
             report.setStatus(Report.ReportStatus.FAILED);
             report.setErrorMessage(e.getMessage());
             reportRepository.save(report);
             throw e;
         } catch (Exception e) {
-            // Handle all other errors gracefully
+
             log.error("Unexpected error during report generation for session: {}", sessionId, e);
             report.setStatus(Report.ReportStatus.FAILED);
             report.setErrorMessage("Report generation failed: " + 

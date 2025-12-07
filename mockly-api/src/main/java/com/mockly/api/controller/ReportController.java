@@ -52,7 +52,7 @@ public class ReportController {
         UUID userId = UUID.fromString(authentication.getName());
         ReportResponse response = reportService.getReport(sessionId, userId);
 
-        // Publish WebSocket event if report is ready
+
         if (response.status() == Report.ReportStatus.READY) {
             Session session = sessionRepository.findById(sessionId).orElse(null);
             if (session != null) {

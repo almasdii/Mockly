@@ -43,7 +43,6 @@ public class MLServiceClient {
                 request.sessionId(), request.artifactId(), request.artifactType());
 
         try {
-            // Log request details
             String requestJson = objectMapper.writeValueAsString(request);
             log.debug("ML service request payload: {}", requestJson);
 
@@ -60,7 +59,7 @@ public class MLServiceClient {
                 throw new MLProcessingException("ML service returned null response");
             }
 
-            // Log response details
+
             log.info("ML service processing completed successfully for session: {}", request.sessionId());
             log.debug("ML service response: metrics={}, summary length={}, recommendations length={}, transcript present={}", 
                     response.metrics() != null ? response.metrics().size() : 0,
@@ -75,7 +74,7 @@ public class MLServiceClient {
                     String.format("ML service processing failed with status %d: %s", 
                             e.getStatusCode().value(), e.getMessage()), e);
         } catch (Exception e) {
-            // Handle timeout and other exceptions
+
             String errorMessage = e.getMessage();
             if (errorMessage != null && (errorMessage.contains("timeout") || errorMessage.contains("Timeout"))) {
                 log.error("ML service request timeout for session: {} after {}", request.sessionId(), REQUEST_TIMEOUT, e);

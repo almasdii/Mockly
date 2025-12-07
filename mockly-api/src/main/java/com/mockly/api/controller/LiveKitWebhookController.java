@@ -131,7 +131,7 @@ public class LiveKitWebhookController {
                 session = sessionRepository.save(session);
                 log.info("Session {} finished (room_finished event)", sessionId);
                 
-                // Publish WebSocket event
+
                 var sessionResponse = sessionMapper.toResponse(session);
                 eventPublisher.publishSessionEnded(session, sessionResponse);
             }
@@ -141,13 +141,13 @@ public class LiveKitWebhookController {
     private void handleParticipantJoined(Map<String, Object> payload) {
         String roomName = (String) payload.get("room");
         log.info("Participant joined room: {}", roomName);
-        // Additional processing if needed
+
     }
 
     private void handleParticipantLeft(Map<String, Object> payload) {
         String roomName = (String) payload.get("room");
         log.info("Participant left room: {}", roomName);
-        // Additional processing if needed
+
     }
 
     private UUID extractSessionId(String roomName) {

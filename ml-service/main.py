@@ -11,7 +11,7 @@ import logging
 import os
 from datetime import datetime
 
-# Configure logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,6 @@ app.add_middleware(
 )
 
 
-# Models
 class MLProcessRequest(BaseModel):
     """Request model for ML processing."""
     sessionId: str
@@ -48,7 +47,6 @@ class MLProcessResponse(BaseModel):
     transcript: Optional[Dict[str, Any]] = None
 
 
-# Health check endpoint
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
@@ -68,15 +66,12 @@ async def process_audio(request: MLProcessRequest):
     logger.info(f"Processing request for session: {request.sessionId}, artifact: {request.artifactId}")
     
     try:
-        # Step 1: Download audio file (mock - just log the URL)
+
         logger.info(f"Downloading audio from: {request.artifactUrl}")
-        # In real implementation, download and process the file
-        # For now, we'll just simulate the processing
-        
-        # Step 2: Run processing pipeline (mock implementation)
+
+
         logger.info(f"Running processing pipeline for artifact type: {request.artifactType}")
-        
-        # Mock processing results
+
         metrics = {
             "score": 85.5,
             "clarity": 8.2,
