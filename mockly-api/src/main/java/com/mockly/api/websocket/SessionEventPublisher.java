@@ -1,9 +1,15 @@
 package com.mockly.api.websocket;
 
 import com.mockly.core.dto.report.ReportResponse;
+import com.mockly.core.dto.session.ArtifactResponse;
 import com.mockly.core.dto.session.SessionResponse;
+import com.mockly.core.dto.session.TranscriptResponse;
+import com.mockly.core.mapper.SessionMapper;
+import com.mockly.data.entity.Artifact;
 import com.mockly.data.entity.Session;
 import com.mockly.data.entity.SessionParticipant;
+import com.mockly.data.entity.Transcript;
+import com.mockly.data.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -14,6 +20,8 @@ import java.util.UUID;
 /**
  * Publishes session-related events to WebSocket clients.
  * Uses STOMP messaging to send real-time updates.
+ * All events are sent to: /topic/sessions/{sessionId}
+ * Payload: SessionEventResponse
  */
 @Component
 @RequiredArgsConstructor
@@ -21,139 +29,180 @@ import java.util.UUID;
 public class SessionEventPublisher {
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final SessionMapper sessionMapper;
+    private final SessionRepository sessionRepository;
 
-    /**
-     * Publish session created event.
-     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions
-     */
-    public void publishSessionCreated(Session session, SessionResponse sessionResponse) {
-        String sessionTopic = "/topic/sessions/" + session.getId();
-        String userTopic = "/topic/users/" + session.getCreatedBy() + "/sessions";
-
-        SessionEvent event = new SessionEvent("SESSION_CREATED", sessionResponse);
-
-        messagingTemplate.convertAndSend(sessionTopic, event);
-        messagingTemplate.convertAndSend(userTopic, event);
-
-        log.info("Published SESSION_CREATED event for session: {}", session.getId());
-    }
-
-    /**
-     * Publish session updated event.
-     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions for all participants
-     */
-    public void publishSessionUpdated(Session session, SessionResponse sessionResponse) {
-        String sessionTopic = "/topic/sessions/" + session.getId();
-
-        SessionEvent event = new SessionEvent("SESSION_UPDATED", sessionResponse);
-
-        messagingTemplate.convertAndSend(sessionTopic, event);
-
-        // Notify all participants
-        if (session.getParticipants() != null) {
-            for (SessionParticipant participant : session.getParticipants()) {
-                String userTopic = "/topic/users/" + participant.getUserId() + "/sessions";
-                messagingTemplate.convertAndSend(userTopic, event);
-            }
-        }
-
-        log.info("Published SESSION_UPDATED event for session: {}", session.getId());
-    }
+    private static final String SESSION_TOPIC_PREFIX = "/topic/sessions/";
 
     /**
      * Publish participant joined event.
-     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions
+     * Sends to: /topic/sessions/{sessionId}
      */
-    public void publishParticipantJoined(Session session, SessionParticipant participant, SessionResponse sessionResponse) {
-        String sessionTopic = "/topic/sessions/" + session.getId();
-        String userTopic = "/topic/users/" + participant.getUserId() + "/sessions";
-
-        SessionEvent event = new SessionEvent("PARTICIPANT_JOINED", sessionResponse);
-
-        messagingTemplate.convertAndSend(sessionTopic, event);
-        messagingTemplate.convertAndSend(userTopic, event);
-
+    public void participantJoined(Session session, SessionParticipant participant, SessionResponse sessionResponse) {
+        String sessionTopic = SESSION_TOPIC_PREFIX + session.getId();
+        SessionEventResponse event = SessionEventResponse.sessionEvent(
+                SessionEventType.PARTICIPANT_JOINED, sessionResponse);
+        
+        publishToSessionTopic(sessionTopic, event);
         log.info("Published PARTICIPANT_JOINED event for session: {}, participant: {}", 
                 session.getId(), participant.getUserId());
     }
 
     /**
      * Publish participant left event.
-     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions
+     * Sends to: /topic/sessions/{sessionId}
      */
-    public void publishParticipantLeft(Session session, UUID userId, SessionResponse sessionResponse) {
-        String sessionTopic = "/topic/sessions/" + session.getId();
-        String userTopic = "/topic/users/" + userId + "/sessions";
-
-        SessionEvent event = new SessionEvent("PARTICIPANT_LEFT", sessionResponse);
-
-        messagingTemplate.convertAndSend(sessionTopic, event);
-        messagingTemplate.convertAndSend(userTopic, event);
-
+    public void participantLeft(Session session, UUID userId, SessionResponse sessionResponse) {
+        String sessionTopic = SESSION_TOPIC_PREFIX + session.getId();
+        SessionEventResponse event = SessionEventResponse.sessionEvent(
+                SessionEventType.PARTICIPANT_LEFT, sessionResponse);
+        
+        publishToSessionTopic(sessionTopic, event);
         log.info("Published PARTICIPANT_LEFT event for session: {}, participant: {}", 
                 session.getId(), userId);
     }
 
     /**
-     * Publish session ended event.
-     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions for all participants
+     * Publish artifact uploaded event.
+     * Sends to: /topic/sessions/{sessionId}
      */
-    public void publishSessionEnded(Session session, SessionResponse sessionResponse) {
-        String sessionTopic = "/topic/sessions/" + session.getId();
+    public void artifactUploaded(Session session, Artifact artifact) {
+        SessionResponse sessionResponse = loadAndMapSession(session.getId());
+        ArtifactResponse artifactResponse = sessionMapper.toResponse(artifact);
+        
+        String sessionTopic = SESSION_TOPIC_PREFIX + session.getId();
+        SessionEventResponse event = SessionEventResponse.artifactEvent(
+                SessionEventType.ARTIFACT_UPLOADED, sessionResponse, artifactResponse);
+        
+        publishToSessionTopic(sessionTopic, event);
+        log.info("Published ARTIFACT_UPLOADED event for session: {}, artifact: {}", 
+                session.getId(), artifact.getId());
+    }
 
-        SessionEvent event = new SessionEvent("SESSION_ENDED", sessionResponse);
-
-        messagingTemplate.convertAndSend(sessionTopic, event);
-
-        // Notify all participants
-        if (session.getParticipants() != null) {
-            for (SessionParticipant participant : session.getParticipants()) {
-                String userTopic = "/topic/users/" + participant.getUserId() + "/sessions";
-                messagingTemplate.convertAndSend(userTopic, event);
-            }
-        }
-
-        log.info("Published SESSION_ENDED event for session: {}", session.getId());
+    /**
+     * Publish transcript added event.
+     * Sends to: /topic/sessions/{sessionId}
+     */
+    public void transcriptAdded(Session session, Transcript transcript) {
+        SessionResponse sessionResponse = loadAndMapSession(session.getId());
+        TranscriptResponse transcriptResponse = toTranscriptResponse(transcript);
+        
+        String sessionTopic = SESSION_TOPIC_PREFIX + session.getId();
+        SessionEventResponse event = SessionEventResponse.transcriptEvent(
+                SessionEventType.TRANSCRIPT_ADDED, sessionResponse, transcriptResponse);
+        
+        publishToSessionTopic(sessionTopic, event);
+        log.info("Published TRANSCRIPT_ADDED event for session: {}, transcript: {}", 
+                session.getId(), transcript.getId());
     }
 
     /**
      * Publish report ready event.
-     * Sends to: /topic/sessions/{sessionId}/report and /topic/users/{userId}/sessions
+     * Sends to: /topic/sessions/{sessionId}
      */
-    public void publishReportReady(Session session, ReportResponse reportResponse) {
-        String sessionTopic = "/topic/sessions/" + session.getId() + "/report";
-        String sessionEventTopic = "/topic/sessions/" + session.getId();
-
-        ReportEvent event = new ReportEvent("REPORT_READY", reportResponse);
-
-        messagingTemplate.convertAndSend(sessionTopic, event);
-        messagingTemplate.convertAndSend(sessionEventTopic, event);
-
-        // Notify all participants
-        if (session.getParticipants() != null) {
-            for (SessionParticipant participant : session.getParticipants()) {
-                String userTopic = "/topic/users/" + participant.getUserId() + "/sessions";
-                messagingTemplate.convertAndSend(userTopic, event);
-            }
-        }
-
+    public void reportReady(Session session, ReportResponse reportResponse) {
+        SessionResponse sessionResponse = loadAndMapSession(session.getId());
+        
+        String sessionTopic = SESSION_TOPIC_PREFIX + session.getId();
+        SessionEventResponse event = SessionEventResponse.reportEvent(
+                SessionEventType.REPORT_READY, sessionResponse, reportResponse);
+        
+        publishToSessionTopic(sessionTopic, event);
         log.info("Published REPORT_READY event for session: {}", session.getId());
     }
 
-    /**
-     * WebSocket event wrapper.
-     */
-    public record SessionEvent(
-            String type,
-            SessionResponse data
-    ) {}
+    // Legacy methods for backward compatibility
 
     /**
-     * WebSocket report event wrapper.
+     * @deprecated Use {@link #participantJoined(Session, SessionParticipant, SessionResponse)} instead
      */
-    public record ReportEvent(
-            String type,
-            ReportResponse data
-    ) {}
+    @Deprecated
+    public void publishParticipantJoined(Session session, SessionParticipant participant, SessionResponse sessionResponse) {
+        participantJoined(session, participant, sessionResponse);
+    }
+
+    /**
+     * @deprecated Use {@link #participantLeft(Session, UUID, SessionResponse)} instead
+     */
+    @Deprecated
+    public void publishParticipantLeft(Session session, UUID userId, SessionResponse sessionResponse) {
+        participantLeft(session, userId, sessionResponse);
+    }
+
+    /**
+     * @deprecated Use {@link #reportReady(Session, ReportResponse)} instead
+     */
+    @Deprecated
+    public void publishReportReady(Session session, ReportResponse reportResponse) {
+        reportReady(session, reportResponse);
+    }
+
+    /**
+     * Publish session created event (legacy).
+     */
+    public void publishSessionCreated(Session session, SessionResponse sessionResponse) {
+        String sessionTopic = SESSION_TOPIC_PREFIX + session.getId();
+        SessionEventResponse event = SessionEventResponse.sessionEvent(
+                SessionEventType.SESSION_CREATED, sessionResponse);
+        
+        publishToSessionTopic(sessionTopic, event);
+        log.info("Published SESSION_CREATED event for session: {}", session.getId());
+    }
+
+    /**
+     * Publish session updated event (legacy).
+     */
+    public void publishSessionUpdated(Session session, SessionResponse sessionResponse) {
+        String sessionTopic = SESSION_TOPIC_PREFIX + session.getId();
+        SessionEventResponse event = SessionEventResponse.sessionEvent(
+                SessionEventType.SESSION_UPDATED, sessionResponse);
+        
+        publishToSessionTopic(sessionTopic, event);
+        log.info("Published SESSION_UPDATED event for session: {}", session.getId());
+    }
+
+    /**
+     * Publish session ended event (legacy).
+     */
+    public void publishSessionEnded(Session session, SessionResponse sessionResponse) {
+        String sessionTopic = SESSION_TOPIC_PREFIX + session.getId();
+        SessionEventResponse event = SessionEventResponse.sessionEvent(
+                SessionEventType.SESSION_ENDED, sessionResponse);
+        
+        publishToSessionTopic(sessionTopic, event);
+        log.info("Published SESSION_ENDED event for session: {}", session.getId());
+    }
+
+    // Private helper methods
+
+    /**
+     * Publish event to session topic.
+     * DRY method to avoid code duplication.
+     */
+    private void publishToSessionTopic(String sessionTopic, SessionEventResponse event) {
+        messagingTemplate.convertAndSend(sessionTopic, event);
+    }
+
+    /**
+     * Load session from repository and map to SessionResponse.
+     */
+    private SessionResponse loadAndMapSession(UUID sessionId) {
+        Session session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found: " + sessionId));
+        return sessionMapper.toResponse(session);
+    }
+
+    /**
+     * Convert Transcript entity to TranscriptResponse DTO.
+     */
+    private TranscriptResponse toTranscriptResponse(Transcript transcript) {
+        return new TranscriptResponse(
+                transcript.getId(),
+                transcript.getSessionId(),
+                transcript.getSource(),
+                transcript.getText(),
+                transcript.getWords(),
+                transcript.getCreatedAt()
+        );
+    }
 }
-

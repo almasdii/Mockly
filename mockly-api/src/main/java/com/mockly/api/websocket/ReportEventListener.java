@@ -25,7 +25,7 @@ public class ReportEventListener {
 
         Session session = sessionRepository.findById(event.sessionId()).orElse(null);
         if (session != null) {
-            sessionEventPublisher.publishReportReady(session, event.report());
+            sessionEventPublisher.reportReady(session, event.report());
         } else {
             log.warn("Session not found for report ready event: {}", event.sessionId());
         }

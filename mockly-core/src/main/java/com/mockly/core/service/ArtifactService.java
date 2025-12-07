@@ -4,18 +4,22 @@ import com.mockly.core.dto.artifact.CompleteUploadRequest;
 import com.mockly.core.dto.artifact.RequestUploadRequest;
 import com.mockly.core.dto.artifact.RequestUploadResponse;
 import com.mockly.core.dto.session.ArtifactResponse;
+import com.mockly.core.exception.ArtifactUploadException;
 import com.mockly.core.exception.BadRequestException;
 import com.mockly.core.exception.ResourceNotFoundException;
 import com.mockly.data.entity.Artifact;
+import com.mockly.data.enums.ArtifactType;
 import com.mockly.data.repository.ArtifactRepository;
 import com.mockly.data.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -40,6 +44,7 @@ public class ArtifactService {
     private final ArtifactRepository artifactRepository;
     private final SessionRepository sessionRepository;
     private final MinIOService minIOService;
+    private final ReportService reportService;
 
     /**
      * Request upload URL for an artifact.
@@ -100,13 +105,15 @@ public class ArtifactService {
 
     /**
      * Complete artifact upload.
-     * Verifies file was uploaded and updates artifact metadata.
+     * Verifies file was uploaded, validates file size, and updates artifact metadata.
+     * If artifact type is AUDIO_MIXED, automatically triggers ML pipeline.
      *
      * @param sessionId Session ID
      * @param artifactId Artifact ID
      * @param userId User ID (for authorization)
      * @param request Completion request with final metadata
      * @return Updated artifact response
+     * @throws ArtifactUploadException if file size mismatch or upload verification fails
      */
     @Transactional
     public ArtifactResponse completeUpload(UUID sessionId, UUID artifactId, UUID userId, CompleteUploadRequest request) {
@@ -125,16 +132,28 @@ public class ArtifactService {
             throw new BadRequestException("Artifact does not belong to this session");
         }
 
-        // Verify file was uploaded to MinIO
+        // Verify file was uploaded to MinIO using statObject
         if (!minIOService.objectExists(artifact.getStorageUrl())) {
-            throw new BadRequestException("File was not uploaded to storage. Please upload the file first.");
+            throw new ArtifactUploadException("File was not uploaded to storage. Please upload the file first.");
         }
 
-        // Get actual file size from MinIO
+        // Get actual file size from MinIO using statObject
         var metadata = minIOService.getObjectMetadata(artifact.getStorageUrl());
         long actualSize = metadata.size();
+        long expectedSize = request.fileSizeBytes() != null ? request.fileSizeBytes() : artifact.getSizeBytes();
 
-        // Update artifact metadata
+        // Verify file size matches
+        if (expectedSize > 0 && actualSize != expectedSize) {
+            log.error("File size mismatch for artifact {}: expected {} bytes, actual {} bytes", 
+                    artifactId, expectedSize, actualSize);
+            throw new ArtifactUploadException(
+                    String.format("File size mismatch: expected %d bytes, but actual size is %d bytes. " +
+                            "Please re-upload the file.", expectedSize, actualSize));
+        }
+
+        log.info("File size verification passed for artifact {}: {} bytes", artifactId, actualSize);
+
+        // Save artifact metadata
         artifact.setSizeBytes(actualSize);
         artifact.setDurationSec(request.durationSec());
 
@@ -145,7 +164,29 @@ public class ArtifactService {
         artifact = artifactRepository.save(artifact);
         log.info("Completed upload for artifact: {}", artifactId);
 
+        // If artifact.type == AUDIO_MIXED → trigger ML pipeline automatically
+        if (artifact.getType() == ArtifactType.AUDIO_MIXED) {
+            log.info("AUDIO_MIXED artifact detected, triggering ML pipeline for session: {}", sessionId);
+            triggerMLPipelineAsync(sessionId);
+        }
+
         return toResponse(artifact);
+    }
+
+    /**
+     * Trigger ML pipeline asynchronously for session.
+     */
+    @Async("reportProcessingExecutor")
+    public CompletableFuture<Void> triggerMLPipelineAsync(UUID sessionId) {
+        try {
+            log.info("Triggering ML pipeline for session: {}", sessionId);
+            reportService.generateReport(sessionId);
+            log.info("ML pipeline triggered successfully for session: {}", sessionId);
+        } catch (Exception e) {
+            log.error("Failed to trigger ML pipeline for session: {}", sessionId, e);
+            // Don't throw - this is async and shouldn't block the upload completion
+        }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**

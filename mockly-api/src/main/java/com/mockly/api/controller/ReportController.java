@@ -56,7 +56,7 @@ public class ReportController {
         if (response.status() == Report.ReportStatus.READY) {
             Session session = sessionRepository.findById(sessionId).orElse(null);
             if (session != null) {
-                eventPublisher.publishReportReady(session, response);
+                eventPublisher.reportReady(session, response);
             }
         }
 

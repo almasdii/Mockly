@@ -1,7 +1,9 @@
 package com.mockly.core.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mockly.core.dto.ml.MLProcessRequest;
 import com.mockly.core.dto.ml.MLProcessResponse;
+import com.mockly.core.exception.MLProcessingException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -12,31 +14,39 @@ import java.time.Duration;
 
 /**
  * Client for communicating with ML service.
- * Handles async requests to process artifacts and generate reports.
+ * Handles requests to process artifacts and generate reports.
  */
 @Service
 @Slf4j
 public class MLServiceClient {
 
     private final WebClient mlServiceWebClient;
+    private final ObjectMapper objectMapper;
 
-    public MLServiceClient(@Qualifier("mlServiceWebClient") WebClient mlServiceWebClient) {
+    public MLServiceClient(@Qualifier("mlServiceWebClient") WebClient mlServiceWebClient, ObjectMapper objectMapper) {
         this.mlServiceWebClient = mlServiceWebClient;
+        this.objectMapper = objectMapper;
     }
 
-    private static final Duration REQUEST_TIMEOUT = Duration.ofMinutes(30); // ML processing can take time
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
     /**
-     * Send artifact to ML service for processing.
+     * Process artifact via ML service.
+     * POST /api/process to ML service with configurable base URL (ML_SERVICE_URL).
      *
      * @param request Processing request with artifact details
      * @return ML processing response with metrics, summary, recommendations, and transcript
+     * @throws MLProcessingException on failure
      */
-    public MLProcessResponse processArtifact(MLProcessRequest request) {
-        log.info("Sending artifact to ML service for processing: sessionId={}, artifactId={}", 
-                request.sessionId(), request.artifactId());
+    public MLProcessResponse process(MLProcessRequest request) {
+        log.info("Sending request to ML service: sessionId={}, artifactId={}, artifactType={}", 
+                request.sessionId(), request.artifactId(), request.artifactType());
 
         try {
+            // Log request details
+            String requestJson = objectMapper.writeValueAsString(request);
+            log.debug("ML service request payload: {}", requestJson);
+
             MLProcessResponse response = mlServiceWebClient.post()
                     .uri("/api/process")
                     .bodyValue(request)
@@ -45,15 +55,44 @@ public class MLServiceClient {
                     .timeout(REQUEST_TIMEOUT)
                     .block();
 
-            log.info("ML service processing completed for session: {}", request.sessionId());
+            if (response == null) {
+                log.error("ML service returned null response for session: {}", request.sessionId());
+                throw new MLProcessingException("ML service returned null response");
+            }
+
+            // Log response details
+            log.info("ML service processing completed successfully for session: {}", request.sessionId());
+            log.debug("ML service response: metrics={}, summary length={}, recommendations length={}, transcript present={}", 
+                    response.metrics() != null ? response.metrics().size() : 0,
+                    response.summary() != null ? response.summary().length() : 0,
+                    response.recommendations() != null ? response.recommendations().length() : 0,
+                    response.transcript() != null && !response.transcript().isEmpty());
+
             return response;
         } catch (WebClientResponseException e) {
-            log.error("ML service error: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RuntimeException("ML service processing failed: " + e.getMessage(), e);
+            log.error("ML service HTTP error: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new MLProcessingException(
+                    String.format("ML service processing failed with status %d: %s", 
+                            e.getStatusCode().value(), e.getMessage()), e);
         } catch (Exception e) {
-            log.error("Unexpected error calling ML service", e);
-            throw new RuntimeException("Failed to process artifact with ML service", e);
+            // Handle timeout and other exceptions
+            String errorMessage = e.getMessage();
+            if (errorMessage != null && (errorMessage.contains("timeout") || errorMessage.contains("Timeout"))) {
+                log.error("ML service request timeout for session: {} after {}", request.sessionId(), REQUEST_TIMEOUT, e);
+                throw new MLProcessingException("ML service request timed out after " + REQUEST_TIMEOUT, e);
+            }
+            log.error("Unexpected error calling ML service for session: {}", request.sessionId(), e);
+            throw new MLProcessingException("Failed to process artifact with ML service: " + 
+                    (errorMessage != null ? errorMessage : e.getClass().getSimpleName()), e);
         }
+    }
+
+    /**
+     * @deprecated Use {@link #process(MLProcessRequest)} instead
+     */
+    @Deprecated
+    public MLProcessResponse processArtifact(MLProcessRequest request) {
+        return process(request);
     }
 
     /**

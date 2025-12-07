@@ -74,7 +74,7 @@ public class SessionController {
                     .filter(p -> p.getUserId().equals(userId))
                     .findFirst()
                     .ifPresent(participant -> 
-                            eventPublisher.publishParticipantJoined(session, participant, response));
+                            eventPublisher.participantJoined(session, participant, response));
         }
         
         return ResponseEntity.ok(response);
@@ -95,7 +95,7 @@ public class SessionController {
         Session session = sessionRepository.findById(id).orElse(null);
         if (session != null) {
             SessionResponse response = sessionService.getSession(id, userId);
-            eventPublisher.publishParticipantLeft(session, userId, response);
+            eventPublisher.participantLeft(session, userId, response);
         }
         
         return ResponseEntity.ok().build();
