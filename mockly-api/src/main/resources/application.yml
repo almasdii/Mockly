@@ -6,7 +6,6 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
   datasource:
-    # Используем 127.0.0.1 для надежности на Windows
     url: jdbc:postgresql://127.0.0.1:5432/mockly?connectTimeout=10&socketTimeout=30&loginTimeout=10
     username: mockly
     password: mockly_password
@@ -45,7 +44,7 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}  # локальный Redis через проброс порта
+      host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:26379}
       password: ${REDIS_PASSWORD:}
       timeout: 2000ms

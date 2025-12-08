@@ -117,60 +117,86 @@ public class ArtifactService {
      */
     @Transactional
     public ArtifactResponse completeUpload(UUID sessionId, UUID artifactId, UUID userId, CompleteUploadRequest request) {
-        log.info("Completing upload for artifact: {} in session: {}", artifactId, sessionId);
+        try {
+            log.info("=== COMPLETE UPLOAD START ===");
+            log.info("SessionId: {}, ArtifactId: {}, UserId: {}", sessionId, artifactId, userId);
+            log.info("Request: {}", request);
+            log.info("FileSizeBytes: {}, DurationSec: {}", request.fileSizeBytes(), request.durationSec());
 
-        // Validate session exists
-        sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
+            // Validate session exists
+            log.info("Validating session exists...");
+            sessionRepository.findById(sessionId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
+            log.info("Session validated");
 
-        // Get artifact
-        Artifact artifact = artifactRepository.findById(artifactId)
-                .orElseThrow(() -> new ResourceNotFoundException("Artifact not found: " + artifactId));
+            // Get artifact
+            log.info("Getting artifact...");
+            Artifact artifact = artifactRepository.findById(artifactId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Artifact not found: " + artifactId));
+            log.info("Artifact found: {}", artifact);
 
-        // Verify artifact belongs to session
-        if (!artifact.getSessionId().equals(sessionId)) {
-            throw new BadRequestException("Artifact does not belong to this session");
+            // Verify artifact belongs to session
+            log.info("Verifying artifact belongs to session...");
+            if (!artifact.getSessionId().equals(sessionId)) {
+                throw new BadRequestException("Artifact does not belong to this session");
+            }
+            log.info("Artifact belongs to session");
+
+            // Verify file was uploaded to MinIO using statObject
+            log.info("Checking if object exists in MinIO: {}", artifact.getStorageUrl());
+            if (!minIOService.objectExists(artifact.getStorageUrl())) {
+                throw new ArtifactUploadException("File was not uploaded to storage. Please upload the file first.");
+            }
+            log.info("Object exists in MinIO");
+
+            // Get actual file size from MinIO using statObject
+            log.info("Getting object metadata from MinIO...");
+            var metadata = minIOService.getObjectMetadata(artifact.getStorageUrl());
+            long actualSize = metadata.size();
+            log.info("Actual file size from MinIO: {} bytes", actualSize);
+
+            long expectedSize = request.fileSizeBytes() != null ? request.fileSizeBytes() : artifact.getSizeBytes();
+            log.info("Expected file size: {} bytes", expectedSize);
+
+            // Verify file size matches
+            if (expectedSize > 0 && actualSize != expectedSize) {
+                log.error("File size mismatch for artifact {}: expected {} bytes, actual {} bytes",
+                        artifactId, expectedSize, actualSize);
+                throw new ArtifactUploadException(
+                        String.format("File size mismatch: expected %d bytes, but actual size is %d bytes. " +
+                                "Please re-upload the file.", expectedSize, actualSize));
+            }
+
+            log.info("File size verification passed for artifact {}: {} bytes", artifactId, actualSize);
+
+            // Save artifact metadata
+            log.info("Updating artifact metadata...");
+            artifact.setSizeBytes(actualSize);
+            artifact.setDurationSec(request.durationSec());
+
+            // Update storage URL to include full path
+            String fullStorageUrl = String.format("%s/%s", minIOService.getBucketName(), artifact.getStorageUrl());
+            artifact.setStorageUrl(fullStorageUrl);
+            log.info("New storage URL: {}", fullStorageUrl);
+
+            log.info("Saving artifact to database...");
+            artifact = artifactRepository.save(artifact);
+            log.info("Artifact saved successfully");
+
+            // If artifact.type == AUDIO_MIXED → trigger ML pipeline automatically
+//            if (artifact.getType() == ArtifactType.AUDIO_MIXED) {
+//                log.info("AUDIO_MIXED artifact detected, triggering ML pipeline for session: {}", sessionId);
+//                triggerMLPipelineAsync(sessionId);
+//            }
+
+            log.info("=== COMPLETE UPLOAD SUCCESS ===");
+            return toResponse(artifact);
+
+        } catch (Exception e) {
+            log.error("=== COMPLETE UPLOAD ERROR ===", e);
+            log.error("Error message: {}", e.getMessage());
+            throw e;
         }
-
-        // Verify file was uploaded to MinIO using statObject
-        if (!minIOService.objectExists(artifact.getStorageUrl())) {
-            throw new ArtifactUploadException("File was not uploaded to storage. Please upload the file first.");
-        }
-
-        // Get actual file size from MinIO using statObject
-        var metadata = minIOService.getObjectMetadata(artifact.getStorageUrl());
-        long actualSize = metadata.size();
-        long expectedSize = request.fileSizeBytes() != null ? request.fileSizeBytes() : artifact.getSizeBytes();
-
-        // Verify file size matches
-        if (expectedSize > 0 && actualSize != expectedSize) {
-            log.error("File size mismatch for artifact {}: expected {} bytes, actual {} bytes", 
-                    artifactId, expectedSize, actualSize);
-            throw new ArtifactUploadException(
-                    String.format("File size mismatch: expected %d bytes, but actual size is %d bytes. " +
-                            "Please re-upload the file.", expectedSize, actualSize));
-        }
-
-        log.info("File size verification passed for artifact {}: {} bytes", artifactId, actualSize);
-
-        // Save artifact metadata
-        artifact.setSizeBytes(actualSize);
-        artifact.setDurationSec(request.durationSec());
-
-        // Update storage URL to include full path
-        String fullStorageUrl = String.format("%s/%s", minIOService.getBucketName(), artifact.getStorageUrl());
-        artifact.setStorageUrl(fullStorageUrl);
-
-        artifact = artifactRepository.save(artifact);
-        log.info("Completed upload for artifact: {}", artifactId);
-
-        // If artifact.type == AUDIO_MIXED → trigger ML pipeline automatically
-        if (artifact.getType() == ArtifactType.AUDIO_MIXED) {
-            log.info("AUDIO_MIXED artifact detected, triggering ML pipeline for session: {}", sessionId);
-            triggerMLPipelineAsync(sessionId);
-        }
-
-        return toResponse(artifact);
     }
 
     /**

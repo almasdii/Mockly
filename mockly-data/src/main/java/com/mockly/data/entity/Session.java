@@ -2,10 +2,7 @@ package com.mockly.data.entity;
 
 import com.mockly.data.enums.SessionStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -22,6 +19,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"participants", "artifacts", "report"})
 public class Session {
 
     @Id

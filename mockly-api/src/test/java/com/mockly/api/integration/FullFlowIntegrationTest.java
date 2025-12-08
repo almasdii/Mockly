@@ -24,6 +24,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -32,6 +33,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -58,9 +60,14 @@ import static org.awaitility.Awaitility.await;
  * 5. Mock ML service response
  * 6. Assert report saved to DB
  */
+
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 @DisplayName("Full Flow Integration Test")
+@TestPropertySource(properties = {
+        "spring.security.enabled=false"
+})
 class FullFlowIntegrationTest {
 
     @Container
@@ -81,6 +88,12 @@ class FullFlowIntegrationTest {
             .withCommand("server", "/data", "--console-address", ":9001")
             .waitingFor(Wait.forHttp("/minio/health/live").forPort(9000));
 
+    @Container
+    static GenericContainer<?> redis = new GenericContainer<>(
+            DockerImageName.parse("redis:7-alpine")
+    )
+            .withExposedPorts(6379);
+
     private WireMockServer mlServiceMock;
     private int mlServicePort;
 
@@ -88,7 +101,7 @@ class FullFlowIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private RestTemplate restTemplate;
+    private TestRestTemplate restTemplate;
 
     @Autowired
     private SessionRepository sessionRepository;
@@ -111,34 +124,34 @@ class FullFlowIntegrationTest {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        // PostgreSQL
+
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
 
-        // MinIO
+
         registry.add("minio.endpoint", () -> 
                 String.format("http://%s:%d", minio.getHost(), minio.getMappedPort(9000)));
         registry.add("minio.access-key", () -> "minioadmin");
         registry.add("minio.secret-key", () -> "minioadmin");
         registry.add("minio.bucket-name", () -> "mockly-artifacts");
 
-        // ML Service URL - will be set in @BeforeEach after WireMock starts
+
         registry.add("ml.service.url", () -> "http://localhost:8089");
 
-        // JWT
         registry.add("jwt.secret", () -> "test-secret-key-must-be-at-least-64-bytes-long-for-hs512-algorithm-to-work-properly-in-testing");
 
-        // Redis (use in-memory for tests)
         registry.add("spring.data.redis.host", () -> "localhost");
         registry.add("spring.data.redis.port", () -> 6379);
+
+        registry.add("spring.data.redis.host", redis::getHost);
+        registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
     }
 
     @BeforeEach
     void setUp() {
         baseUrl = "http://localhost:" + serverPort;
 
-        // Start WireMock server for ML service on fixed port
         mlServicePort = 8089;
         mlServiceMock = new WireMockServer(mlServicePort);
         mlServiceMock.start();
@@ -163,18 +176,19 @@ class FullFlowIntegrationTest {
                 "        \"duration_seconds\": 300\n" +
                 "    }\n" +
                 "}";
-        
+
         mlServiceMock.stubFor(post(urlEqualTo("/api/process"))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody(mockResponse)));
 
-        // Initialize MinIO bucket
+
         initializeMinIO();
-        
-        // Register users
+
+
         registerUsers();
+    }
 
     @AfterEach
     void tearDown() {
@@ -209,7 +223,6 @@ class FullFlowIntegrationTest {
     }
 
     private void registerUsers() {
-        // Register candidate
         RegisterRequest candidateRequest = new RegisterRequest(
                 "candidate@test.com",
                 "password123",
@@ -218,16 +231,38 @@ class FullFlowIntegrationTest {
                 Profile.ProfileRole.CANDIDATE
         );
 
-        ResponseEntity<TokenResponse> candidateResponse = restTemplate.postForEntity(
-                baseUrl + "/api/auth/register",
-                new HttpEntity<>(candidateRequest, createHeaders()),
-                TokenResponse.class
-        );
-        assertThat(candidateResponse.getStatusCode().is2xxSuccessful()).isTrue();
-        candidateToken = candidateResponse.getBody().accessToken();
-        candidateId = candidateResponse.getBody().userId();
+        try {
+            ResponseEntity<TokenResponse> candidateResponse = restTemplate.postForEntity(
+                    "/api/auth/register",
+                    candidateRequest,
+                    TokenResponse.class
+            );
 
-        // Register interviewer
+            System.out.println("=== CANDIDATE REGISTRATION ===");
+            System.out.println("Status Code: " + candidateResponse.getStatusCode());
+            System.out.println("Status Code Value: " + candidateResponse.getStatusCode().value());
+            System.out.println("Response Body: " + candidateResponse.getBody());
+            System.out.println("Headers: " + candidateResponse.getHeaders());
+
+            // Проверка на null перед использованием
+            if (candidateResponse.getBody() == null) {
+                throw new AssertionError("Response body is null!");
+            }
+
+            assertThat(candidateResponse.getStatusCode().is2xxSuccessful()).isTrue();
+            candidateToken = candidateResponse.getBody().accessToken();
+            candidateId = candidateResponse.getBody().userId();
+
+            System.out.println("Candidate Token: " + candidateToken);
+            System.out.println("Candidate ID: " + candidateId);
+
+        } catch (Exception e) {
+            System.err.println("ERROR during candidate registration:");
+            e.printStackTrace();
+            throw e;
+        }
+
+        // Register interviewer (аналогично)
         RegisterRequest interviewerRequest = new RegisterRequest(
                 "interviewer@test.com",
                 "password123",
@@ -236,14 +271,33 @@ class FullFlowIntegrationTest {
                 Profile.ProfileRole.INTERVIEWER
         );
 
-        ResponseEntity<TokenResponse> interviewerResponse = restTemplate.postForEntity(
-                baseUrl + "/api/auth/register",
-                new HttpEntity<>(interviewerRequest, createHeaders()),
-                TokenResponse.class
-        );
-        assertThat(interviewerResponse.getStatusCode().is2xxSuccessful()).isTrue();
-        interviewerToken = interviewerResponse.getBody().accessToken();
-        interviewerId = interviewerResponse.getBody().userId();
+        try {
+            ResponseEntity<TokenResponse> interviewerResponse = restTemplate.postForEntity(
+                    "/api/auth/register",
+                    interviewerRequest,
+                    TokenResponse.class
+            );
+
+            System.out.println("=== INTERVIEWER REGISTRATION ===");
+            System.out.println("Status Code: " + interviewerResponse.getStatusCode());
+            System.out.println("Response Body: " + interviewerResponse.getBody());
+
+            if (interviewerResponse.getBody() == null) {
+                throw new AssertionError("Response body is null!");
+            }
+
+            assertThat(interviewerResponse.getStatusCode().is2xxSuccessful()).isTrue();
+            interviewerToken = interviewerResponse.getBody().accessToken();
+            interviewerId = interviewerResponse.getBody().userId();
+
+            System.out.println("Interviewer Token: " + interviewerToken);
+            System.out.println("Interviewer ID: " + interviewerId);
+
+        } catch (Exception e) {
+            System.err.println("ERROR during interviewer registration:");
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     @Test
@@ -380,7 +434,6 @@ class FullFlowIntegrationTest {
         assertThat(metrics).containsKey("clarity");
         assertThat(metrics).containsKey("confidence");
 
-        // Verify summary and recommendations are not empty
         assertThat(savedReport.getSummary()).isNotBlank();
         assertThat(savedReport.getRecommendations()).isNotBlank();
     }
